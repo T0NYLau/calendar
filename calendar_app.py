@@ -7,6 +7,7 @@ import sys
 import threading
 import json
 import subprocess
+import requests
 from tkinter import ttk, messagebox, simpledialog
 
 # 导入系统托盘相关库
@@ -133,6 +134,41 @@ class CalendarApp:
             repeat_value TEXT DEFAULT NULL
         )
         ''')
+        
+        # 添加LLM配置表
+        cursor.execute('''
+        CREATE TABLE IF NOT EXISTS llm_configs (
+            id INTEGER PRIMARY KEY,
+            name TEXT UNIQUE,
+            base_uri TEXT,
+            model_name TEXT,
+            api_key TEXT,
+            temperature REAL DEFAULT 0.7,
+            is_default INTEGER DEFAULT 0
+        )
+        ''')
+        
+        # 添加聊天历史表
+        cursor.execute('''
+        CREATE TABLE IF NOT EXISTS chat_sessions (
+            id INTEGER PRIMARY KEY,
+            title TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        ''')
+        
+        cursor.execute('''
+        CREATE TABLE IF NOT EXISTS chat_messages (
+            id INTEGER PRIMARY KEY,
+            session_id INTEGER,
+            role TEXT,
+            content TEXT,
+            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (session_id) REFERENCES chat_sessions (id) ON DELETE CASCADE
+        )
+        ''')
+        
         conn.commit()
         conn.close()
     
@@ -176,6 +212,9 @@ class CalendarApp:
         
         # 测试提醒按钮（调试用）
         ttk.Button(control_frame, text="测试提醒", command=self.test_reminders).pack(side=tk.RIGHT, padx=5)
+        
+        # LLM按钮
+        ttk.Button(control_frame, text="AI助手", command=self.show_llm_dialog).pack(side=tk.RIGHT, padx=5)
         
         # 日历区域
         self.calendar_frame = ttk.Frame(main_frame)
@@ -2232,6 +2271,790 @@ class CalendarApp:
         reminder_window.bell()
 
 
+    def show_llm_dialog(self):
+        """显示LLM配置对话框"""
+        # 创建弹窗
+        popup = tk.Toplevel(self.root)
+        popup.geometry("1500x800")  # 增大初始尺寸
+        popup.minsize(600, 500)    # 设置最小尺寸
+        popup.resizable(True, True)  # 允许调整大小
+        
+        # 创建自定义标题栏
+        self.create_custom_popup_title_bar(popup, "AI助手配置")
+        
+        # 应用黑底白字样式
+        self.configure_popup_style(popup)
+        
+        # 主框架
+        main_frame = ttk.Frame(popup, padding=15, style='Dark.TFrame')
+        main_frame.pack(fill=tk.BOTH, expand=True)
+        
+        # 创建选项卡
+        notebook = ttk.Notebook(main_frame, style='Dark.TNotebook')
+        notebook.pack(fill=tk.BOTH, expand=True)
+        
+        # 配置管理选项卡
+        config_frame = ttk.Frame(notebook, style='Dark.TFrame')
+        notebook.add(config_frame, text="配置管理")
+        
+        # 聊天选项卡
+        chat_frame = ttk.Frame(notebook, style='Dark.TFrame')
+        notebook.add(chat_frame, text="AI聊天")
+        
+        # 配置管理界面
+        self.create_llm_config_ui(config_frame, popup)
+        
+        # 聊天界面
+        self.create_llm_chat_ui(chat_frame, popup)
+
+        # 添加右下角缩放控件
+        resize_handle = tk.Frame(popup, cursor="size_nw_se", bg="#222222", width=16, height=16)
+        resize_handle.place(relx=1.0, rely=1.0, anchor="se")
+
+        def start_resize(event):
+            resize_handle.start_x = event.x
+            resize_handle.start_y = event.y
+            resize_handle.start_width = popup.winfo_width()
+            resize_handle.start_height = popup.winfo_height()
+
+        def do_resize(event):
+            dx = event.x - resize_handle.start_x
+            dy = event.y - resize_handle.start_y
+            new_width = max(popup.minsize()[0], resize_handle.start_width + dx)
+            new_height = max(popup.minsize()[1], resize_handle.start_height + dy)
+            popup.geometry(f"{new_width}x{new_height}")
+
+        resize_handle.bind("<Button-1>", start_resize)
+        resize_handle.bind("<B1-Motion>", do_resize)
+    
+    def create_llm_config_ui(self, parent, popup):
+        """创建LLM配置管理界面"""
+        # 配置列表框架
+        list_frame = ttk.Frame(parent, style='Dark.TFrame')
+        list_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
+        
+        # 配置列表标题
+        ttk.Label(list_frame, text="AI模型配置", font=("SimSun", 12, "bold"), 
+                 style='Dark.TLabel').pack(anchor=tk.W, pady=(0, 10))
+        
+        # 创建配置列表
+        columns = ("名称", "基础URI", "模型名称", "温度")
+        self.config_tree = ttk.Treeview(list_frame, columns=columns, show="headings", height=6)
+        
+        # 设置列标题
+        for col in columns:
+            self.config_tree.heading(col, text=col)
+            self.config_tree.column(col, width=120)
+        
+        # 添加滚动条
+        config_scrollbar = ttk.Scrollbar(list_frame, orient="vertical", command=self.config_tree.yview)
+        self.config_tree.configure(yscrollcommand=config_scrollbar.set)
+        
+        # 布局
+        self.config_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        config_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        
+        # 加载配置列表
+        self.load_llm_configs()
+        
+        # 配置操作按钮框架
+        config_btn_frame = ttk.Frame(parent, style='Dark.TFrame')
+        config_btn_frame.pack(fill=tk.X, pady=10)
+        
+        ttk.Button(config_btn_frame, text="添加配置", command=self.add_llm_config, 
+                  style='Dark.TButton').pack(side=tk.LEFT, padx=5)
+        ttk.Button(config_btn_frame, text="编辑配置", command=self.edit_llm_config, 
+                  style='Dark.TButton').pack(side=tk.LEFT, padx=5)
+        ttk.Button(config_btn_frame, text="删除配置", command=self.delete_llm_config, 
+                  style='Dark.TButton').pack(side=tk.LEFT, padx=5)
+        ttk.Button(config_btn_frame, text="设为默认", command=self.set_default_llm_config, 
+                  style='Dark.TButton').pack(side=tk.LEFT, padx=5)
+    
+    def create_llm_chat_ui(self, parent, popup):
+        """创建LLM聊天界面"""
+        # 创建左右分栏布局
+        chat_paned = ttk.PanedWindow(parent, orient=tk.HORIZONTAL, style='Dark.TPanedwindow')
+        chat_paned.pack(fill=tk.BOTH, expand=True)
+        
+        # 左侧历史对话面板
+        history_frame = ttk.Frame(chat_paned, style='Dark.TFrame')
+        chat_paned.add(history_frame, weight=1)
+        
+        # 历史对话标题和操作按钮
+        history_header = ttk.Frame(history_frame, style='Dark.TFrame')
+        history_header.pack(fill=tk.X, pady=(0, 5))
+        
+        ttk.Label(history_header, text="历史对话", font=("SimSun", 12, "bold"), 
+                 style='Dark.TLabel').pack(side=tk.LEFT)
+        
+        # 历史对话操作按钮
+        history_btn_frame = ttk.Frame(history_header, style='Dark.TFrame')
+        history_btn_frame.pack(side=tk.RIGHT)
+        
+        ttk.Button(history_btn_frame, text="新建", command=self.new_chat_session, 
+                  style='Dark.TButton').pack(side=tk.LEFT, padx=2)
+        ttk.Button(history_btn_frame, text="删除", command=self.delete_selected_sessions, 
+                  style='Dark.TButton').pack(side=tk.LEFT, padx=2)
+        ttk.Button(history_btn_frame, text="清空", command=self.clear_all_sessions, 
+                  style='Dark.TButton').pack(side=tk.LEFT, padx=2)
+        
+        # 历史对话列表
+        self.session_tree = ttk.Treeview(history_frame, columns=("时间",), show="tree headings", height=8, selectmode="extended")
+        self.session_tree.heading("#0", text="对话标题")
+        self.session_tree.heading("时间", text="更新时间")
+        self.session_tree.column("#0", width=150)
+        self.session_tree.column("时间", width=120)
+        
+        # 添加滚动条
+        session_scrollbar = ttk.Scrollbar(history_frame, orient="vertical", command=self.session_tree.yview)
+        self.session_tree.configure(yscrollcommand=session_scrollbar.set)
+        
+        self.session_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        session_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        
+        # 绑定双击事件加载对话
+        self.session_tree.bind("<Double-1>", self.load_chat_session)
+        
+        # 绑定右键菜单
+        self.session_tree.bind("<Button-3>", self.show_session_context_menu)
+        
+        # 右侧聊天区域
+        chat_area_frame = ttk.Frame(chat_paned, style='Dark.TFrame')
+        chat_paned.add(chat_area_frame, weight=3)
+        
+        # 聊天历史框架
+        chat_history_frame = ttk.Frame(chat_area_frame, style='Dark.TFrame')
+        chat_history_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
+        
+        # 聊天历史标题
+        ttk.Label(chat_history_frame, text="AI助手", font=("SimSun", 12, "bold"), 
+                 style='Dark.TLabel').pack(anchor=tk.W, pady=(0, 10))
+        
+        # 聊天历史显示区域
+        self.chat_text = tk.Text(chat_history_frame, wrap=tk.WORD, bg='#1a1a1a', fg='white', 
+                                insertbackground='white', font=("SimSun", 10))
+        chat_scrollbar = ttk.Scrollbar(chat_history_frame, orient="vertical", command=self.chat_text.yview)
+        self.chat_text.configure(yscrollcommand=chat_scrollbar.set)
+        
+        self.chat_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        chat_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        
+        # 输入框架
+        input_frame = ttk.Frame(chat_area_frame, style='Dark.TFrame')
+        input_frame.pack(fill=tk.BOTH, expand=True, pady=10)
+        
+        # 输入框框架
+        input_text_frame = ttk.Frame(input_frame, style='Dark.TFrame')
+        input_text_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 10))
+        
+        # 多行输入框
+        self.input_text = tk.Text(input_text_frame, wrap=tk.WORD, bg='#222222', fg='white', 
+                                 insertbackground='white', height=6, font=("SimSun", 10))
+        input_scrollbar = ttk.Scrollbar(input_text_frame, orient="vertical", command=self.input_text.yview)
+        self.input_text.configure(yscrollcommand=input_scrollbar.set)
+        
+        self.input_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        input_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        
+        # 按钮框架
+        button_frame = ttk.Frame(input_frame, style='Dark.TFrame')
+        button_frame.pack(side=tk.RIGHT, fill=tk.Y)
+        
+        # 发送按钮
+        ttk.Button(button_frame, text="发送", command=self.send_llm_message, 
+                  style='Dark.TButton').pack(pady=(0, 5))
+        
+        # 清空按钮
+        ttk.Button(button_frame, text="清空", command=self.clear_input, 
+                  style='Dark.TButton').pack()
+        
+        # 绑定回车键（换行）和Ctrl+Enter（发送）
+        self.input_text.bind("<Return>", self.handle_return_key)
+        self.input_text.bind("<Control-Return>", lambda e: self.send_llm_message())
+        
+        # 初始化聊天
+        self.chat_text.insert(tk.END, "AI助手: 您好！我是您的AI助手，有什么可以帮助您的吗？\n\n", "system")
+        self.chat_text.configure(state="disabled")
+        
+        # 聊天标签配置
+        self.chat_text.tag_configure("user", background="#2d4a6b", foreground="white", 
+                                   font=("SimSun", 10, "bold"))
+        self.chat_text.tag_configure("ai", background="#2d6b4a", foreground="white", 
+                                   font=("SimSun", 10))
+        self.chat_text.tag_configure("system", background="#4a4a4a", foreground="white", 
+                                   font=("SimSun", 10, "italic"))
+        
+        # 初始化变量
+        self.current_session_id = None
+        self.current_messages = []
+        
+        # 加载历史对话列表
+        self.load_chat_sessions()
+    
+    def load_llm_configs(self):
+        """加载LLM配置列表"""
+        # 清空现有数据
+        for item in self.config_tree.get_children():
+            self.config_tree.delete(item)
+        
+        # 从数据库加载配置
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute("SELECT name, base_uri, model_name, temperature, is_default FROM llm_configs ORDER BY is_default DESC, name")
+        
+        for row in cursor.fetchall():
+            name, base_uri, model_name, temperature, is_default = row
+            # 如果是默认配置，在名称前添加标记
+            display_name = f"★ {name}" if is_default else name
+            self.config_tree.insert("", tk.END, values=(display_name, base_uri, model_name, temperature))
+        
+        conn.close()
+    
+    def add_llm_config(self):
+        """添加LLM配置"""
+        # 创建配置对话框
+        config_dialog = tk.Toplevel(self.root)
+        config_dialog.geometry("500x400")
+        
+        # 创建自定义标题栏
+        self.create_custom_popup_title_bar(config_dialog, "添加AI模型配置")
+        
+        # 应用黑底白字样式
+        self.configure_popup_style(config_dialog)
+        
+        # 配置表单框架
+        form_frame = ttk.Frame(config_dialog, padding=15, style='Dark.TFrame')
+        form_frame.pack(fill=tk.BOTH, expand=True)
+        
+        # 配置名称
+        ttk.Label(form_frame, text="配置名称:", style='Dark.TLabel').grid(row=0, column=0, sticky=tk.W, padx=5, pady=5)
+        name_var = tk.StringVar()
+        name_entry = ttk.Entry(form_frame, textvariable=name_var, width=40, style='Dark.TEntry')
+        name_entry.grid(row=0, column=1, sticky=tk.W, padx=5, pady=5)
+        
+        # 基础URI
+        ttk.Label(form_frame, text="基础URI:", style='Dark.TLabel').grid(row=1, column=0, sticky=tk.W, padx=5, pady=5)
+        uri_var = tk.StringVar()
+        uri_entry = ttk.Entry(form_frame, textvariable=uri_var, width=40, style='Dark.TEntry')
+        uri_entry.grid(row=1, column=1, sticky=tk.W, padx=5, pady=5)
+        uri_entry.insert(0, "https://api.hdgsb.com/v1")
+        
+        # 模型名称
+        ttk.Label(form_frame, text="模型名称:", style='Dark.TLabel').grid(row=2, column=0, sticky=tk.W, padx=5, pady=5)
+        model_var = tk.StringVar()
+        model_entry = ttk.Entry(form_frame, textvariable=model_var, width=40, style='Dark.TEntry')
+        model_entry.grid(row=2, column=1, sticky=tk.W, padx=5, pady=5)
+        model_entry.insert(0, "qwen3-coder-480b-a35b-instruct")
+        
+        # API密钥
+        ttk.Label(form_frame, text="API密钥:", style='Dark.TLabel').grid(row=3, column=0, sticky=tk.W, padx=5, pady=5)
+        key_var = tk.StringVar()
+        key_entry = ttk.Entry(form_frame, textvariable=key_var, width=40, style='Dark.TEntry', show="*")
+        key_entry.grid(row=3, column=1, sticky=tk.W, padx=5, pady=5)
+        
+        # 温度系数
+        ttk.Label(form_frame, text="温度系数:", style='Dark.TLabel').grid(row=4, column=0, sticky=tk.W, padx=5, pady=5)
+        temp_var = tk.DoubleVar(value=0.7)
+        temp_scale = ttk.Scale(form_frame, from_=0.0, to=2.0, variable=temp_var, orient=tk.HORIZONTAL, style='Dark.Horizontal.TScale')
+        temp_scale.grid(row=4, column=1, sticky=tk.W, padx=5, pady=5)
+        temp_label = ttk.Label(form_frame, text="0.7", style='Dark.TLabel')
+        temp_label.grid(row=4, column=2, sticky=tk.W, padx=5, pady=5)
+        
+        # 更新温度显示
+        def update_temp_label(*args):
+            temp_label.config(text=f"{temp_var.get():.1f}")
+        temp_var.trace("w", update_temp_label)
+        
+        # 设为默认
+        default_var = tk.BooleanVar()
+        default_check = ttk.Checkbutton(form_frame, text="设为默认配置", variable=default_var, style='Dark.TCheckbutton')
+        default_check.grid(row=5, column=1, sticky=tk.W, padx=5, pady=5)
+        
+        # 按钮框架
+        button_frame = ttk.Frame(form_frame, style='Dark.TFrame')
+        button_frame.grid(row=6, column=0, columnspan=2, pady=20)
+        
+        def save_config():
+            name = name_var.get().strip()
+            uri = uri_var.get().strip()
+            model = model_var.get().strip()
+            key = key_var.get().strip()
+            temp = temp_var.get()
+            is_default = default_var.get()
+            
+            if not all([name, uri, model, key]):
+                messagebox.showwarning("警告", "请填写所有必填字段！")
+                return
+            
+            # 保存到数据库
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            try:
+                if is_default:
+                    # 如果设为默认，先清除其他默认配置
+                    cursor.execute("UPDATE llm_configs SET is_default = 0")
+                
+                cursor.execute("""
+                INSERT INTO llm_configs (name, base_uri, model_name, api_key, temperature, is_default)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """, (name, uri, model, key, temp, 1 if is_default else 0))
+                
+                conn.commit()
+                messagebox.showinfo("成功", "配置已保存！")
+                config_dialog.destroy()
+                self.load_llm_configs()
+                
+            except sqlite3.IntegrityError:
+                messagebox.showerror("错误", "配置名称已存在！")
+            except Exception as e:
+                messagebox.showerror("错误", f"保存配置时出错: {e}")
+            finally:
+                conn.close()
+        
+        ttk.Button(button_frame, text="保存", command=save_config, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
+        ttk.Button(button_frame, text="取消", command=config_dialog.destroy, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
+    
+    def edit_llm_config(self):
+        """编辑LLM配置"""
+        selected_item = self.config_tree.selection()
+        if not selected_item:
+            messagebox.showwarning("警告", "请先选择一个配置！")
+            return
+        
+        # 获取选中的配置名称（去掉默认标记）
+        values = self.config_tree.item(selected_item[0], "values")
+        config_name = values[0].replace("★ ", "")
+        
+        # 从数据库获取配置详情
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute("SELECT base_uri, model_name, api_key, temperature, is_default FROM llm_configs WHERE name = ?", (config_name,))
+        result = cursor.fetchone()
+        conn.close()
+        
+        if not result:
+            messagebox.showerror("错误", "配置不存在！")
+            return
+        
+        base_uri, model_name, api_key, temperature, is_default = result
+        
+        # 创建编辑对话框
+        edit_dialog = tk.Toplevel(self.root)
+        edit_dialog.geometry("500x400")
+        
+        # 创建自定义标题栏
+        self.create_custom_popup_title_bar(edit_dialog, f"编辑配置 - {config_name}")
+        
+        # 应用黑底白字样式
+        self.configure_popup_style(edit_dialog)
+        
+        # 配置表单框架
+        form_frame = ttk.Frame(edit_dialog, padding=15, style='Dark.TFrame')
+        form_frame.pack(fill=tk.BOTH, expand=True)
+        
+        # 配置名称（只读）
+        ttk.Label(form_frame, text="配置名称:", style='Dark.TLabel').grid(row=0, column=0, sticky=tk.W, padx=5, pady=5)
+        name_label = ttk.Label(form_frame, text=config_name, style='Dark.TLabel')
+        name_label.grid(row=0, column=1, sticky=tk.W, padx=5, pady=5)
+        
+        # 基础URI
+        ttk.Label(form_frame, text="基础URI:", style='Dark.TLabel').grid(row=1, column=0, sticky=tk.W, padx=5, pady=5)
+        uri_var = tk.StringVar(value=base_uri)
+        uri_entry = ttk.Entry(form_frame, textvariable=uri_var, width=40, style='Dark.TEntry')
+        uri_entry.grid(row=1, column=1, sticky=tk.W, padx=5, pady=5)
+        
+        # 模型名称
+        ttk.Label(form_frame, text="模型名称:", style='Dark.TLabel').grid(row=2, column=0, sticky=tk.W, padx=5, pady=5)
+        model_var = tk.StringVar(value=model_name)
+        model_entry = ttk.Entry(form_frame, textvariable=model_var, width=40, style='Dark.TEntry')
+        model_entry.grid(row=2, column=1, sticky=tk.W, padx=5, pady=5)
+        
+        # API密钥
+        ttk.Label(form_frame, text="API密钥:", style='Dark.TLabel').grid(row=3, column=0, sticky=tk.W, padx=5, pady=5)
+        key_var = tk.StringVar(value=api_key)
+        key_entry = ttk.Entry(form_frame, textvariable=key_var, width=40, style='Dark.TEntry', show="*")
+        key_entry.grid(row=3, column=1, sticky=tk.W, padx=5, pady=5)
+        
+        # 温度系数
+        ttk.Label(form_frame, text="温度系数:", style='Dark.TLabel').grid(row=4, column=0, sticky=tk.W, padx=5, pady=5)
+        temp_var = tk.DoubleVar(value=temperature)
+        temp_scale = ttk.Scale(form_frame, from_=0.0, to=2.0, variable=temp_var, orient=tk.HORIZONTAL, style='Dark.Horizontal.TScale')
+        temp_scale.grid(row=4, column=1, sticky=tk.W, padx=5, pady=5)
+        temp_label = ttk.Label(form_frame, text=f"{temperature:.1f}", style='Dark.TLabel')
+        temp_label.grid(row=4, column=2, sticky=tk.W, padx=5, pady=5)
+        
+        # 更新温度显示
+        def update_temp_label(*args):
+            temp_label.config(text=f"{temp_var.get():.1f}")
+        temp_var.trace("w", update_temp_label)
+        
+        # 设为默认
+        default_var = tk.BooleanVar(value=bool(is_default))
+        default_check = ttk.Checkbutton(form_frame, text="设为默认配置", variable=default_var, style='Dark.TCheckbutton')
+        default_check.grid(row=5, column=1, sticky=tk.W, padx=5, pady=5)
+        
+        # 按钮框架
+        button_frame = ttk.Frame(form_frame, style='Dark.TFrame')
+        button_frame.grid(row=6, column=0, columnspan=2, pady=20)
+        
+        def save_config():
+            uri = uri_var.get().strip()
+            model = model_var.get().strip()
+            key = key_var.get().strip()
+            temp = temp_var.get()
+            is_default = default_var.get()
+            
+            if not all([uri, model, key]):
+                messagebox.showwarning("警告", "请填写所有必填字段！")
+                return
+            
+            # 保存到数据库
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            try:
+                if is_default:
+                    # 如果设为默认，先清除其他默认配置
+                    cursor.execute("UPDATE llm_configs SET is_default = 0")
+                
+                cursor.execute("""
+                UPDATE llm_configs SET base_uri = ?, model_name = ?, api_key = ?, temperature = ?, is_default = ?
+                WHERE name = ?
+                """, (uri, model, key, temp, 1 if is_default else 0, config_name))
+                
+                conn.commit()
+                messagebox.showinfo("成功", "配置已更新！")
+                edit_dialog.destroy()
+                self.load_llm_configs()
+                
+            except Exception as e:
+                messagebox.showerror("错误", f"更新配置时出错: {e}")
+            finally:
+                conn.close()
+        
+        ttk.Button(button_frame, text="保存", command=save_config, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
+        ttk.Button(button_frame, text="取消", command=edit_dialog.destroy, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
+    
+    def delete_llm_config(self):
+        """删除LLM配置"""
+        selected_item = self.config_tree.selection()
+        if not selected_item:
+            messagebox.showwarning("警告", "请先选择一个配置！")
+            return
+        
+        # 获取选中的配置名称（去掉默认标记）
+        values = self.config_tree.item(selected_item[0], "values")
+        config_name = values[0].replace("★ ", "")
+        
+        if messagebox.askyesno("确认", f"确定要删除配置 '{config_name}' 吗？"):
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            try:
+                cursor.execute("DELETE FROM llm_configs WHERE name = ?", (config_name,))
+                conn.commit()
+                messagebox.showinfo("成功", "配置已删除！")
+                self.load_llm_configs()
+            except Exception as e:
+                messagebox.showerror("错误", f"删除配置时出错: {e}")
+            finally:
+                conn.close()
+    
+    def set_default_llm_config(self):
+        """设置默认LLM配置"""
+        selected_item = self.config_tree.selection()
+        if not selected_item:
+            messagebox.showwarning("警告", "请先选择一个配置！")
+            return
+        
+        # 获取选中的配置名称（去掉默认标记）
+        values = self.config_tree.item(selected_item[0], "values")
+        config_name = values[0].replace("★ ", "")
+        
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        try:
+            # 清除所有默认配置
+            cursor.execute("UPDATE llm_configs SET is_default = 0")
+            # 设置选中的配置为默认
+            cursor.execute("UPDATE llm_configs SET is_default = 1 WHERE name = ?", (config_name,))
+            conn.commit()
+            messagebox.showinfo("成功", f"已设置 '{config_name}' 为默认配置！")
+            self.load_llm_configs()
+        except Exception as e:
+            messagebox.showerror("错误", f"设置默认配置时出错: {e}")
+        finally:
+            conn.close()
+    
+    def get_default_llm_config(self):
+        """获取默认LLM配置"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute("SELECT name, base_uri, model_name, api_key, temperature FROM llm_configs WHERE is_default = 1")
+        result = cursor.fetchone()
+        conn.close()
+        
+        if result:
+            return {
+                'name': result[0],
+                'base_uri': result[1],
+                'model_name': result[2],
+                'api_key': result[3],
+                'temperature': result[4]
+            }
+        return None
+    
+    def handle_return_key(self, event):
+        """处理回车键事件"""
+        # 如果按下Shift+Enter，则换行
+        if event.state & 0x1:  # Shift键被按下
+            return None  # 允许默认的换行行为
+        else:
+            # 普通回车键，阻止默认行为，不换行
+            return "break"
+    
+    def clear_input(self):
+        """清空输入框"""
+        self.input_text.delete("1.0", tk.END)
+    
+    def send_llm_message(self):
+        """发送LLM消息"""
+        message = self.input_text.get("1.0", tk.END).strip()
+        if not message:
+            return
+        
+        # 获取默认配置
+        config = self.get_default_llm_config()
+        if not config:
+            messagebox.showwarning("警告", "请先配置AI模型！")
+            return
+        
+        # 保存用户消息到数据库
+        self.save_chat_message("user", message)
+        
+        # 显示用户消息
+        self.chat_text.configure(state="normal")
+        self.chat_text.insert(tk.END, f"您: {message}\n", "user")
+        self.chat_text.configure(state="disabled")
+        self.chat_text.see(tk.END)
+        
+        # 清空输入框
+        self.input_text.delete("1.0", tk.END)
+        
+        # 显示等待消息
+        self.chat_text.configure(state="normal")
+        self.chat_text.insert(tk.END, "AI助手: ", "ai")
+        self.chat_text.configure(state="disabled")
+        self.chat_text.see(tk.END)
+        
+        # 在新线程中发送请求
+        threading.Thread(target=self.call_llm_api_stream, args=(message, config), daemon=True).start()
+    
+    def call_llm_api_stream(self, message, config):
+        """调用LLM API（流式）"""
+        try:
+            # 构建请求URL
+            url = f"{config['base_uri']}/chat/completions"
+            
+            # 构建请求头
+            headers = {
+                "Authorization": f"Bearer {config['api_key']}",
+                "Content-Type": "application/json"
+            }
+            
+            # 构建消息历史（包含当前消息）
+            messages = []
+            for msg in self.current_messages:
+                messages.append({"role": msg["role"], "content": msg["content"]})
+            
+            # 构建请求体（支持流式）
+            data = {
+                "model": config['model_name'],
+                "messages": messages,
+                "temperature": config['temperature'],
+                "stream": True
+            }
+            
+            # 发送流式请求
+            response = requests.post(url, headers=headers, json=data, timeout=30, stream=True)
+            
+            if response.status_code == 200:
+                # 处理流式响应
+                self.process_stream_response(response)
+            else:
+                error_msg = f"API请求失败: {response.status_code} - {response.text}"
+                self.root.after(0, self.update_chat_with_error, error_msg)
+        except Exception as e:
+            # 如果流式请求失败，尝试非流式请求
+            try:
+                self.root.after(0, self.fallback_to_non_stream, message, config)
+            except Exception as fallback_error:
+                error_msg = f"流式和非流式请求都失败: {str(e)}"
+                self.root.after(0, self.update_chat_with_error, error_msg)
+                
+        except requests.exceptions.Timeout:
+            error_msg = "请求超时，请检查网络连接"
+            self.root.after(0, self.update_chat_with_error, error_msg)
+        except requests.exceptions.RequestException as e:
+            error_msg = f"网络请求错误: {str(e)}"
+            self.root.after(0, self.update_chat_with_error, error_msg)
+        except Exception as e:
+            error_msg = f"未知错误: {str(e)}"
+            self.root.after(0, self.update_chat_with_error, error_msg)
+    
+    def process_stream_response(self, response):
+        """处理流式响应"""
+        try:
+            for line in response.iter_lines():
+                if line:
+                    line = line.decode('utf-8')
+                    if line.startswith('data: '):
+                        data = line[6:]  # 去掉 'data: ' 前缀
+                        if data == '[DONE]':
+                            # 流式响应结束
+                            self.root.after(0, self.finish_stream_response)
+                            break
+                        else:
+                            try:
+                                import json
+                                chunk = json.loads(data)
+                                if 'choices' in chunk and len(chunk['choices']) > 0:
+                                    delta = chunk['choices'][0].get('delta', {})
+                                    if 'content' in delta:
+                                        content = delta['content']
+                                        # 在主线程中更新UI
+                                        self.root.after(0, self.append_stream_content, content)
+                            except json.JSONDecodeError:
+                                continue
+        except Exception as e:
+            error_msg = f"处理流式响应时出错: {str(e)}"
+            self.root.after(0, self.update_chat_with_error, error_msg)
+    
+    def append_stream_content(self, content):
+        """追加流式内容"""
+        if not hasattr(self, 'stream_content'):
+            self.stream_content = ""
+        
+        self.stream_content += content
+        
+        self.chat_text.configure(state="normal")
+        self.chat_text.insert(tk.END, content, "ai")
+        self.chat_text.configure(state="disabled")
+        self.chat_text.see(tk.END)
+    
+    def finish_stream_response(self):
+        """完成流式响应"""
+        self.chat_text.configure(state="normal")
+        self.chat_text.insert(tk.END, "\n\n")
+        self.chat_text.configure(state="disabled")
+        self.chat_text.see(tk.END)
+        
+        # 保存AI回复到数据库
+        if hasattr(self, 'stream_content') and self.stream_content:
+            self.save_chat_message("assistant", self.stream_content)
+            self.stream_content = ""
+    
+    def fallback_to_non_stream(self, message, config):
+        """回退到非流式请求"""
+        # 删除"AI助手: "消息
+        self.chat_text.configure(state="normal")
+        last_line_start = self.chat_text.index("end-2l linestart")
+        last_line_end = self.chat_text.index("end-1l")
+        self.chat_text.delete(last_line_start, last_line_end)
+        
+        # 显示回退消息
+        self.chat_text.insert(tk.END, "AI助手: 正在使用备用模式...\n", "system")
+        self.chat_text.configure(state="disabled")
+        self.chat_text.see(tk.END)
+        
+        # 在新线程中发送非流式请求
+        threading.Thread(target=self.call_llm_api, args=(message, config), daemon=True).start()
+    
+    def call_llm_api(self, message, config):
+        """调用LLM API（非流式，备用）"""
+        try:
+            # 构建请求URL
+            url = f"{config['base_uri']}/chat/completions"
+            
+            # 构建请求头
+            headers = {
+                "Authorization": f"Bearer {config['api_key']}",
+                "Content-Type": "application/json"
+            }
+            
+            # 构建消息历史（包含当前消息）
+            messages = []
+            for msg in self.current_messages:
+                messages.append({"role": msg["role"], "content": msg["content"]})
+            
+            # 构建请求体
+            data = {
+                "model": config['model_name'],
+                "messages": messages,
+                "temperature": config['temperature']
+            }
+            
+            # 发送请求
+            response = requests.post(url, headers=headers, json=data, timeout=30)
+            
+            if response.status_code == 200:
+                result = response.json()
+                if 'choices' in result and len(result['choices']) > 0:
+                    ai_message = result['choices'][0]['message']['content']
+                    
+                    # 在主线程中更新UI
+                    self.root.after(0, self.update_chat_with_response, ai_message)
+                else:
+                    error_msg = "API返回格式错误"
+                    self.root.after(0, self.update_chat_with_error, error_msg)
+            else:
+                error_msg = f"API请求失败: {response.status_code} - {response.text}"
+                self.root.after(0, self.update_chat_with_error, error_msg)
+                
+        except requests.exceptions.Timeout:
+            error_msg = "请求超时，请检查网络连接"
+            self.root.after(0, self.update_chat_with_error, error_msg)
+        except requests.exceptions.RequestException as e:
+            error_msg = f"网络请求错误: {str(e)}"
+            self.root.after(0, self.update_chat_with_error, error_msg)
+        except Exception as e:
+            error_msg = f"未知错误: {str(e)}"
+            self.root.after(0, self.update_chat_with_error, error_msg)
+    
+    def update_chat_with_response(self, ai_message):
+        """更新聊天界面显示AI回复（非流式）"""
+        self.chat_text.configure(state="normal")
+        
+        # 删除"AI助手: "消息
+        last_line_start = self.chat_text.index("end-2l linestart")
+        last_line_end = self.chat_text.index("end-1l")
+        self.chat_text.delete(last_line_start, last_line_end)
+        
+        # 插入AI回复
+        self.chat_text.insert(tk.END, f"AI助手: {ai_message}\n\n", "ai")
+        self.chat_text.configure(state="disabled")
+        self.chat_text.see(tk.END)
+        
+        # 保存AI回复到数据库
+        self.save_chat_message("assistant", ai_message)
+    
+    def update_chat_with_error(self, error_msg):
+        """更新聊天界面显示错误信息"""
+        self.chat_text.configure(state="normal")
+        
+        # 删除"AI助手: "消息
+        last_line_start = self.chat_text.index("end-2l linestart")
+        last_line_end = self.chat_text.index("end-1l")
+        self.chat_text.delete(last_line_start, last_line_end)
+        
+        # 插入错误信息
+        self.chat_text.insert(tk.END, f"AI助手: 抱歉，出现了错误: {error_msg}\n\n", "system")
+        self.chat_text.configure(state="disabled")
+        self.chat_text.see(tk.END)
+
+
     
     def show_reminder_popup(self, reminder_id, reminder_time, reminder_message):
         """显示提醒弹窗"""
@@ -2309,6 +3132,18 @@ class CalendarApp:
                        troughcolor='#111111', arrowcolor='white')
         style.configure('Dark.Horizontal.TScrollbar', background='#333333', 
                        troughcolor='#111111', arrowcolor='white')
+        
+        # 配置Notebook的暗色样式
+        style.configure('Dark.TNotebook', background='black', borderwidth=0)
+        style.configure('Dark.TNotebook.Tab', background='#333333', foreground='white', 
+                       padding=[10, 5], borderwidth=1)
+        style.map('Dark.TNotebook.Tab', 
+                 background=[('selected', '#555555'), ('active', '#444444')],
+                 foreground=[('selected', 'white'), ('active', 'white')])
+        
+        # 配置Scale的暗色样式
+        style.configure('Dark.Horizontal.TScale', background='black', 
+                       troughcolor='#333333', slidercolor='#666666')
 
     def create_custom_popup_title_bar(self, popup, title):
         """创建自定义黑底白字标题栏"""
@@ -2620,6 +3455,281 @@ class CalendarApp:
     def on_leave(self, event, button):
         """按钮离开效果"""
         button.config(bg='#000000')
+
+    # 历史对话管理方法
+    def new_chat_session(self):
+        """新建聊天会话"""
+        self.current_session_id = None
+        self.current_messages = []
+        
+        # 清空聊天区域
+        self.chat_text.configure(state="normal")
+        self.chat_text.delete("1.0", tk.END)
+        self.chat_text.insert(tk.END, "AI助手: 您好！我是您的AI助手，有什么可以帮助您的吗？\n\n", "system")
+        self.chat_text.configure(state="disabled")
+        
+        # 清空输入框
+        self.input_text.delete("1.0", tk.END)
+        
+        # 取消选中状态
+        self.session_tree.selection_remove(self.session_tree.selection())
+    
+    def load_chat_sessions(self):
+        """加载历史对话列表"""
+        # 清空现有数据
+        for item in self.session_tree.get_children():
+            self.session_tree.delete(item)
+        
+        # 从数据库加载会话
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT id, title, updated_at 
+            FROM chat_sessions 
+            ORDER BY updated_at DESC
+        """)
+        
+        for row in cursor.fetchall():
+            session_id, title, updated_at = row
+            # 格式化时间
+            try:
+                dt = datetime.datetime.fromisoformat(updated_at.replace('Z', '+00:00'))
+                formatted_time = dt.strftime("%m-%d %H:%M")
+            except:
+                formatted_time = updated_at[:16] if len(updated_at) > 16 else updated_at
+            
+            self.session_tree.insert("", tk.END, text=title, values=(formatted_time,), tags=(session_id,))
+        
+        conn.close()
+    
+    def load_chat_session(self, event):
+        """加载选中的聊天会话"""
+        selection = self.session_tree.selection()
+        if not selection:
+            return
+        
+        item = selection[0]
+        session_id = self.session_tree.item(item, "tags")[0]
+        
+        # 从数据库加载会话消息
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT role, content 
+            FROM chat_messages 
+            WHERE session_id = ? 
+            ORDER BY timestamp
+        """, (session_id,))
+        
+        messages = cursor.fetchall()
+        conn.close()
+        
+        # 更新当前会话
+        self.current_session_id = session_id
+        self.current_messages = [{"role": role, "content": content} for role, content in messages]
+        
+        # 显示消息
+        self.chat_text.configure(state="normal")
+        self.chat_text.delete("1.0", tk.END)
+        
+        for msg in messages:
+            role, content = msg
+            if role == "user":
+                self.chat_text.insert(tk.END, f"您: {content}\n", "user")
+            elif role == "assistant":
+                self.chat_text.insert(tk.END, f"AI助手: {content}\n", "ai")
+        
+        self.chat_text.configure(state="disabled")
+        self.chat_text.see(tk.END)
+    
+    def save_chat_message(self, role, content):
+        """保存聊天消息到数据库"""
+        if not self.current_session_id:
+            # 创建新会话
+            title = content[:20] + "..." if len(content) > 20 else content
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO chat_sessions (title, created_at, updated_at) 
+                VALUES (?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+            """, (title,))
+            self.current_session_id = cursor.lastrowid
+            conn.commit()
+            conn.close()
+            
+            # 刷新会话列表
+            self.load_chat_sessions()
+        
+        # 保存消息
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO chat_messages (session_id, role, content) 
+            VALUES (?, ?, ?)
+        """, (self.current_session_id, role, content))
+        
+        # 更新会话时间
+        cursor.execute("""
+            UPDATE chat_sessions 
+            SET updated_at = CURRENT_TIMESTAMP 
+            WHERE id = ?
+        """, (self.current_session_id,))
+        
+        conn.commit()
+        conn.close()
+        
+        # 更新当前消息列表
+        self.current_messages.append({"role": role, "content": content})
+    
+    def delete_selected_sessions(self):
+        """删除选中的会话"""
+        selection = self.session_tree.selection()
+        if not selection:
+            messagebox.showwarning("警告", "请先选择要删除的对话！")
+            return
+        
+        if messagebox.askyesno("确认删除", f"确定要删除选中的 {len(selection)} 个对话吗？"):
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            for item in selection:
+                session_id = self.session_tree.item(item, "tags")[0]
+                cursor.execute("DELETE FROM chat_sessions WHERE id = ?", (session_id,))
+                
+                # 如果删除的是当前会话，清空当前会话
+                if session_id == self.current_session_id:
+                    self.current_session_id = None
+                    self.current_messages = []
+            
+            conn.commit()
+            conn.close()
+            
+            # 刷新会话列表
+            self.load_chat_sessions()
+            
+            # 如果当前会话被删除，清空聊天区域
+            if self.current_session_id is None:
+                self.chat_text.configure(state="normal")
+                self.chat_text.delete("1.0", tk.END)
+                self.chat_text.insert(tk.END, "AI助手: 您好！我是您的AI助手，有什么可以帮助您的吗？\n\n", "system")
+                self.chat_text.configure(state="disabled")
+    
+    def clear_all_sessions(self):
+        """清空所有会话"""
+        if messagebox.askyesno("确认清空", "确定要清空所有历史对话吗？此操作不可恢复！"):
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM chat_sessions")
+            conn.commit()
+            conn.close()
+            
+            # 清空当前会话
+            self.current_session_id = None
+            self.current_messages = []
+            
+            # 刷新会话列表
+            self.load_chat_sessions()
+            
+            # 清空聊天区域
+            self.chat_text.configure(state="normal")
+            self.chat_text.delete("1.0", tk.END)
+            self.chat_text.insert(tk.END, "AI助手: 您好！我是您的AI助手，有什么可以帮助您的吗？\n\n", "system")
+            self.chat_text.configure(state="disabled")
+
+    def show_session_context_menu(self, event):
+        """显示会话上下文菜单"""
+        item = self.session_tree.identify_row(event.y)
+        if item:
+            # 选中右键点击的项目
+            self.session_tree.selection_set(item)
+            
+            menu = tk.Menu(self.root, tearoff=0, bg='#333333', fg='white', activebackground='#555555', activeforeground='white')
+            menu.add_command(label="编辑标题", command=lambda: self.edit_chat_session(item))
+            menu.add_separator()
+            menu.add_command(label="删除对话", command=lambda: self.delete_chat_session(item))
+            menu.post(event.x_root, event.y_root)
+
+    def edit_chat_session(self, selected_item):
+        """编辑选中的聊天会话标题"""
+        selection = self.session_tree.selection()
+        if not selection:
+            return
+        
+        item = selection[0]
+        session_id = self.session_tree.item(item, "tags")[0]
+        current_title = self.session_tree.item(item, "text")
+        
+        # 创建编辑对话框
+        edit_dialog = tk.Toplevel(self.root)
+        edit_dialog.geometry("400x150")
+        edit_dialog.title("编辑对话标题")
+        
+        # 创建自定义标题栏
+        self.create_custom_popup_title_bar(edit_dialog, "编辑对话标题")
+        
+        # 应用黑底白字样式
+        self.configure_popup_style(edit_dialog)
+        
+        # 主框架
+        main_frame = ttk.Frame(edit_dialog, padding=20, style='Dark.TFrame')
+        main_frame.pack(fill=tk.BOTH, expand=True)
+        
+        # 标题输入
+        ttk.Label(main_frame, text="对话标题:", style='Dark.TLabel').pack(anchor=tk.W, pady=(0, 5))
+        title_var = tk.StringVar(value=current_title)
+        title_entry = ttk.Entry(main_frame, textvariable=title_var, width=50, style='Dark.TEntry')
+        title_entry.pack(fill=tk.X, pady=(0, 20))
+        
+        # 按钮框架
+        btn_frame = ttk.Frame(main_frame, style='Dark.TFrame')
+        btn_frame.pack(fill=tk.X)
+        
+        def save_title():
+            new_title = title_var.get().strip()
+            if new_title:
+                conn = sqlite3.connect(self.db_path)
+                cursor = conn.cursor()
+                cursor.execute("UPDATE chat_sessions SET title = ? WHERE id = ?", (new_title, session_id))
+                conn.commit()
+                conn.close()
+                
+                # 刷新会话列表
+                self.load_chat_sessions()
+                edit_dialog.destroy()
+        
+        ttk.Button(btn_frame, text="保存", command=save_title, style='Dark.TButton').pack(side=tk.RIGHT, padx=(5, 0))
+        ttk.Button(btn_frame, text="取消", command=edit_dialog.destroy, style='Dark.TButton').pack(side=tk.RIGHT)
+        
+        # 聚焦到输入框
+        title_entry.focus_set()
+        title_entry.bind("<Return>", lambda e: save_title())
+
+    def delete_chat_session(self, selected_item):
+        """删除选中的聊天会话"""
+        session_id = self.session_tree.item(selected_item, "tags")[0]
+        
+        if messagebox.askyesno("确认删除", "确定要删除这个对话吗？"):
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM chat_sessions WHERE id = ?", (session_id,))
+            
+            # 如果删除的是当前会话，清空当前会话
+            if session_id == self.current_session_id:
+                self.current_session_id = None
+                self.current_messages = []
+            
+            conn.commit()
+            conn.close()
+            
+            # 刷新会话列表
+            self.load_chat_sessions()
+            
+            # 如果当前会话被删除，清空聊天区域
+            if self.current_session_id is None:
+                self.chat_text.configure(state="normal")
+                self.chat_text.delete("1.0", tk.END)
+                self.chat_text.insert(tk.END, "AI助手: 您好！我是您的AI助手，有什么可以帮助您的吗？\n\n", "system")
+                self.chat_text.configure(state="disabled")
 
 # 全局锁文件路径
 LOCK_FILE_PATH = os.path.join(os.path.expanduser("./"), ".calendar_app.lock")

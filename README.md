@@ -29,6 +29,13 @@
 - **智能提醒**：每分钟检查，不会错过提醒时间
 - **提醒弹窗**：到达提醒时间时弹出提醒窗口
 
+### 🤖 AI助手功能
+- **多模型支持**：支持配置多个AI模型
+- **配置管理**：添加、编辑、删除AI模型配置
+- **实时对话**：与AI助手进行实时对话
+- **深色主题**：与主应用保持一致的界面风格
+- **错误处理**：完整的网络错误和API错误处理
+
 ### 🎨 界面特色
 - **深色主题**：黑色背景，白色文字，护眼设计
 - **自定义标题栏**：无边框窗口，自定义标题栏
@@ -50,6 +57,12 @@ pip install lunar-python
 # 方式2：使用lunar-javascript
 # 需要先运行 download_lunar.py 下载lunar.js文件
 python download_lunar.py
+```
+
+### AI助手依赖
+```bash
+# 安装requests库用于API调用
+pip install requests
 ```
 
 ## 🚀 快速开始
@@ -132,6 +145,12 @@ python calendar_app.py
 - 最小化窗口后应用会显示在系统托盘
 - 右键托盘图标可以重新显示窗口或退出应用
 
+#### AI助手
+- 点击主界面右上角的"AI助手"按钮
+- 在配置管理中添加AI模型配置
+- 在AI聊天选项卡中与AI助手对话
+- 支持多配置管理和默认配置设置
+
 ## 🎨 颜色支持
 
 应用支持6种预设颜色：
@@ -159,6 +178,11 @@ python calendar_app.py
 - 备用方案：lunar-javascript
 - 如果都不可用，仅显示公历信息
 
+### AI助手支持
+- 支持多种LLM模型配置
+- 使用requests库进行API调用
+- 完整的错误处理和超时机制
+
 ## 🔧 故障排除
 
 ### 常见问题
@@ -184,6 +208,12 @@ pip install lunar-python
 - 确认重复类型和重复值设置正确
 - 检查数据库中的提醒记录
 
+#### 5. AI助手无法使用
+- 确认已安装requests库：`pip install requests`
+- 检查AI模型配置是否正确
+- 验证API密钥和网络连接
+- 查看控制台错误信息
+
 ### 调试功能
 - 点击"测试提醒"按钮可以手动触发提醒检查
 - 查看控制台输出的调试信息
@@ -198,6 +228,11 @@ calendar/
 ├── lunar.js            # 农历计算库（可选）
 ├── download_lunar.py   # 下载lunar.js的脚本
 ├── start_calendar.vbs  # Windows启动脚本
+├── test_llm.py         # LLM功能测试脚本
+├── demo_llm.py         # LLM功能演示脚本
+├── demo_chat_ui.py     # 聊天界面演示脚本
+├── demo_chat_ui_v2.py  # 聊天界面演示脚本 v2.0
+├── LLM使用说明.md      # AI助手使用说明
 └── README.md          # 项目说明文档
 ```
 
@@ -207,6 +242,7 @@ calendar/
 - **GUI框架**：tkinter
 - **数据库**：SQLite
 - **农历计算**：lunar-python / lunar-javascript
+- **AI助手**：requests / 各种LLM API
 - **语言**：Python 3.7+
 
 ### 系统要求
