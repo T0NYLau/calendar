@@ -48,46 +48,26 @@
 
 ## 📦 安装要求
 
-### 必需依赖
-```bash
-pip install tkinter
-```
 
-### 可选依赖（用于农历功能）
-```bash
-# 方式1：安装lunar-python（推荐）
-pip install lunar-python
-
-# 方式2：使用lunar-javascript
-# 需要先运行 download_lunar.py 下载lunar.js文件
-python download_lunar.py
-```
-
-### AI助手依赖
-```bash
-# 安装requests库用于API调用
-pip install requests
-```
-
-## 🚀 快速开始
 
 ### 1. 下载项目
 ```bash
 git clone <repository-url>
 cd calendar
 ```
-
-### 2. 安装依赖
+### 2. 安装python3、nodejs以及依赖
 ```bash
-pip install lunar-python
+pip install tkinter requests lunar-python pystray pillow psutil -i https://pypi.tuna.tsinghua.edu.cn/simple
 ```
-
+# 如果没有lunar.js文件，需要先运行 download_lunar.py 下载
+```bash
+python download_lunar.py
+```
 ### 3. 运行应用
 ```bash
 python calendar_app.py
 ```
-
-### 4. 使用VBS脚本启动（Windows）
+### 4、（Windows）使用VBS脚本启动
 双击 `start_calendar.vbs` 文件即可启动应用。
 
 
