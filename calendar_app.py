@@ -2276,7 +2276,6 @@ class CalendarApp:
         # 播放提示音
         reminder_window.bell()
 
-
     def show_llm_dialog(self):
         """显示LLM配置对话框"""
         # 创建弹窗
@@ -3975,7 +3974,56 @@ LOCK_FILE_PATH = os.path.join(os.path.expanduser("./"), ".calendar_app.lock")
 
 def is_already_running():
     """检查应用是否已在运行"""
-    return os.path.exists(LOCK_FILE_PATH)
+    if not os.path.exists(LOCK_FILE_PATH):
+        return False
+    
+    try:
+        # 读取锁文件中的进程ID
+        with open(LOCK_FILE_PATH, "r") as f:
+            pid_str = f.read().strip()
+        
+        if not pid_str:
+            # 锁文件为空，视为无效
+            os.remove(LOCK_FILE_PATH)
+            return False
+            
+        lock_pid = int(pid_str)
+        
+        # 检查进程是否存在
+        if os.name == 'nt':  # Windows
+            try:
+                import psutil
+                if psutil.pid_exists(lock_pid):
+                    return True
+                else:
+                    # 进程不存在，清理锁文件
+                    os.remove(LOCK_FILE_PATH)
+                    return False
+            except ImportError:
+                # 如果没有psutil，使用更简单的检查
+                try:
+                    os.kill(lock_pid, 0)  # 发送0信号检查进程
+                    return True
+                except (ProcessLookupError, OSError):
+                    # 进程不存在，清理锁文件
+                    os.remove(LOCK_FILE_PATH)
+                    return False
+        else:  # Unix/Linux/Mac
+            try:
+                os.kill(lock_pid, 0)  # 发送0信号检查进程
+                return True
+            except (ProcessLookupError, OSError):
+                # 进程不存在，清理锁文件
+                os.remove(LOCK_FILE_PATH)
+                return False
+                
+    except (ValueError, IOError, OSError):
+        # 读取文件失败或格式错误，清理锁文件
+        try:
+            os.remove(LOCK_FILE_PATH)
+        except:
+            pass
+        return False
 
 def create_lock_file():
     """创建锁文件"""
@@ -3997,8 +4045,6 @@ def remove_lock_file():
 if __name__ == "__main__":
     if is_already_running():
         messagebox.showinfo("提示", "日历应用已在运行中。")
-        # 尝试通知已运行的实例显示窗口 (这部分比较复杂，暂不实现)
-        # 可以考虑使用更高级的IPC机制，如socket或DBus
         sys.exit(0)
     
     if not create_lock_file():
