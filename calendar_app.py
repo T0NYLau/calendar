@@ -774,7 +774,11 @@ class CalendarApp:
             
             # 绑定鼠标滚轮事件
             def _on_mousewheel(event):
-                canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+                try:
+                    canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+                except tk.TclError:
+                    # canvas可能已被销毁，忽略错误
+                    pass
             
             canvas.bind_all("<MouseWheel>", _on_mousewheel)
             
@@ -2116,7 +2120,9 @@ class CalendarApp:
         lunar_month_day_str = ""
         if LUNAR_AVAILABLE:
             try:
-                solar = Solar.fromDate(today)
+                # 将datetime.date转换为datetime.datetime，提供默认时间
+                today_datetime = datetime.datetime(today.year, today.month, today.day)
+                solar = Solar.fromDate(today_datetime)
                 lunar = Lunar.fromSolar(solar)
                 lunar_month = lunar.getMonth()
                 lunar_day = lunar.getDay()
@@ -2919,6 +2925,12 @@ class CalendarApp:
     def call_llm_api_stream_with_time(self, message, config, time_context):
         """调用LLM API（流式，包含时间信息）"""
         try:
+            # 获取详细农历信息
+            detailed_lunar = self.get_detailed_lunar_context()
+            
+            # 构建完整的时间上下文
+            full_context = f"{time_context}\n\n{detailed_lunar}" if detailed_lunar else time_context
+            
             # 构建请求URL
             url = f"{config['base_uri']}/chat/completions"
             
@@ -2931,8 +2943,8 @@ class CalendarApp:
             # 构建消息历史（包含时间信息和当前消息）
             messages = []
             
-            # 添加系统消息，包含当前时间信息
-            messages.append({"role": "system", "content": time_context})
+            # 添加系统消息，包含当前时间信息和详细农历信息
+            messages.append({"role": "system", "content": f"{full_context}\n\n请基于以上时间信息和农历详情回答用户的问题。"})
             
             # 添加历史消息
             for msg in self.current_messages:
@@ -3033,31 +3045,16 @@ class CalendarApp:
         current_time = now.strftime("%H:%M:%S")
         current_weekday = ["星期一", "星期二", "星期三", "星期四", "星期五", "星期六", "星期日"][now.weekday()]
         
-        # 获取农历信息（如果可用）
-        lunar_info = ""
-        if LUNAR_AVAILABLE:
-            try:
-                if LUNAR_PYTHON_AVAILABLE:
-                    from lunar_python import Lunar, Solar
-                    solar = Solar.fromYmd(now.year, now.month, now.day)
-                    lunar = Lunar.fromSolar(solar)
-                    lunar_month = lunar.getMonthInChinese()
-                    lunar_day = lunar.getDayInChinese()
-                    lunar_info = f"农历{lunar_month}月{lunar_day}"
-                elif LUNAR_JS_AVAILABLE:
-                    if hasattr(self, 'lunar_bridge'):
-                        lunar_month = self.lunar_bridge.get_lunar_month(now.year, now.month, now.day)
-                        lunar_day = self.lunar_bridge.get_lunar_day(now.year, now.month, now.day)
-                        lunar_info = f"农历{lunar_month}月{lunar_day}"
-            except Exception:
-                lunar_info = ""
-        
-        # 构建包含时间信息的系统提示
+        # 构建基本时间上下文
         time_context = f"当前时间是：{current_date} {current_weekday} {current_time}"
-        if lunar_info:
-            time_context += f"，{lunar_info}"
         
-        self.fallback_to_non_stream_with_time(message, config, time_context)
+        # 获取详细农历信息
+        detailed_lunar = self.get_detailed_lunar_context()
+        
+        # 构建完整的时间上下文
+        full_context = f"{time_context}\n\n{detailed_lunar}" if detailed_lunar else time_context
+        
+        self.fallback_to_non_stream_with_time(message, config, full_context)
     
     def fallback_to_non_stream_with_time(self, message, config, time_context):
         """回退到非流式请求（包含时间信息）"""
@@ -3157,9 +3154,93 @@ class CalendarApp:
         self.chat_text.configure(state="disabled")
         self.chat_text.see(tk.END)
     
+    def get_detailed_lunar_context(self):
+        """获取详细的农历信息上下文"""
+        try:
+            if not LUNAR_JS_AVAILABLE:
+                return ""
+            
+            # 获取当前日期
+            from datetime import datetime
+            now = datetime.now()
+            year = now.year
+            month = now.month
+            day = now.day
+            
+            # 创建临时JS文件获取完整农历信息
+            temp_js = os.path.join(os.path.dirname(os.path.abspath(__file__)), "temp_lunar_context.js")
+            with open(temp_js, "w", encoding="utf-8") as f:
+                f.write("const lunar = require('./lunar.js');\n")
+                f.write(f"const solar = lunar.Solar.fromYmd({year}, {month}, {day});\n")
+                f.write("const lunarObj = solar.getLunar();\n")
+                f.write("const result = {\n")
+                f.write("  lunar_info: lunarObj.toFullString(),\n")
+                f.write("  yi_ji: {\n")
+                f.write("    yi: lunarObj.getDayYi(),\n")
+                f.write("    ji: lunarObj.getDayJi()\n")
+                f.write("  },\n")
+                f.write("  animal: lunarObj.getAnimal(),\n")
+                f.write("  xiu: lunarObj.getXiu(),\n")
+                f.write("  zheng: lunarObj.getZheng(),\n")
+                f.write("  xiu_luck: lunarObj.getXiuLuck(),\n")
+                f.write("  peng_zu_gan: lunarObj.getPengZuGan(),\n")
+                f.write("  peng_zu_zhi: lunarObj.getPengZuZhi(),\n")
+                f.write("  day_position_xi: lunarObj.getDayPositionXi(),\n")
+                f.write("  day_position_xi_desc: lunarObj.getDayPositionXiDesc(),\n")
+                f.write("  day_position_yang_gui: lunarObj.getDayPositionYangGui(),\n")
+                f.write("  day_position_yang_gui_desc: lunarObj.getDayPositionYangGuiDesc(),\n")
+                f.write("  day_position_yin_gui: lunarObj.getDayPositionYinGui(),\n")
+                f.write("  day_position_yin_gui_desc: lunarObj.getDayPositionYinGuiDesc(),\n")
+                f.write("  day_position_fu: lunarObj.getDayPositionFu(),\n")
+                f.write("  day_position_fu_desc: lunarObj.getDayPositionFuDesc(),\n")
+                f.write("  day_position_cai: lunarObj.getDayPositionCai(),\n")
+                f.write("  day_position_cai_desc: lunarObj.getDayPositionCaiDesc(),\n")
+                f.write("  day_chong_desc: lunarObj.getDayChongDesc(),\n")
+                f.write("  day_sha: lunarObj.getDaySha(),\n")
+                f.write("  gong: lunarObj.getGong(),\n")
+                f.write("  shou: lunarObj.getShou()\n")
+                f.write("};\n")
+                f.write("console.log(JSON.stringify(result));")
+            
+            # 执行JS文件
+            result = subprocess.check_output(["node", temp_js], text=True, encoding="utf-8")
+            
+            # 删除临时文件
+            os.remove(temp_js)
+            
+            # 解析JSON结果
+            data = json.loads(result.strip())
+            
+            # 使用现有的generate_lunar_info_text方法格式生成文本
+            date_str = f"{year}-{month:02d}-{day:02d}"
+            lunar_text = self.generate_lunar_info_text(
+                date_str, data["lunar_info"], data["animal"], data["xiu"], 
+                data.get("zheng", ""), data.get("xiu_luck", ""),
+                data.get("peng_zu_gan", ""), data.get("peng_zu_zhi", ""),
+                data.get("day_position_xi", ""), data.get("day_position_xi_desc", ""),
+                data.get("day_position_yang_gui", ""), data.get("day_position_yang_gui_desc", ""),
+                data.get("day_position_yin_gui", ""), data.get("day_position_yin_gui_desc", ""),
+                data.get("day_position_fu", ""), data.get("day_position_fu_desc", ""),
+                data.get("day_position_cai", ""), data.get("day_position_cai_desc", ""),
+                data.get("day_chong_desc", ""), data.get("day_sha", ""),
+                data.get("gong", ""), data.get("shou", ""), data["yi_ji"]
+            )
+            
+            return lunar_text
+            
+        except Exception as e:
+            print(f"获取详细农历信息时出错: {e}")
+            return ""
+
     def call_llm_api_with_time(self, message, config, time_context):
         """非流式API调用（包含时间信息）"""
         try:
+            # 获取详细农历信息
+            detailed_lunar = self.get_detailed_lunar_context()
+            
+            # 构建完整的时间上下文
+            full_context = f"{time_context}\n\n{detailed_lunar}" if detailed_lunar else time_context
+            
             # 构建请求URL
             url = f"{config['base_uri']}/chat/completions"
             
@@ -3172,7 +3253,7 @@ class CalendarApp:
             # 构建消息历史（包含当前消息和时间信息）
             messages = []
             # 添加时间信息的系统消息
-            messages.append({"role": "system", "content": f"{time_context}。请基于当前时间信息回答用户的问题。"})
+            messages.append({"role": "system", "content": f"{full_context}\n\n请基于以上时间信息和农历详情回答用户的问题。"})
             
             # 添加历史消息
             for msg in self.current_messages:
