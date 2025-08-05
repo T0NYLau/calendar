@@ -2831,6 +2831,36 @@ class CalendarApp:
             messagebox.showwarning("警告", "请先配置AI模型！")
             return
         
+        # 获取当前时间信息
+        now = datetime.datetime.now()
+        current_date = now.strftime("%Y年%m月%d日")
+        current_time = now.strftime("%H:%M:%S")
+        current_weekday = ["星期一", "星期二", "星期三", "星期四", "星期五", "星期六", "星期日"][now.weekday()]
+        
+        # 获取农历信息（如果可用）
+        lunar_info = ""
+        if LUNAR_AVAILABLE:
+            try:
+                if LUNAR_PYTHON_AVAILABLE:
+                    from lunar_python import Lunar, Solar
+                    solar = Solar.fromYmd(now.year, now.month, now.day)
+                    lunar = Lunar.fromSolar(solar)
+                    lunar_month = lunar.getMonthInChinese()
+                    lunar_day = lunar.getDayInChinese()
+                    lunar_info = f"农历{lunar_month}月{lunar_day}"
+                elif LUNAR_JS_AVAILABLE:
+                    if hasattr(self, 'lunar_bridge'):
+                        lunar_month = self.lunar_bridge.get_lunar_month(now.year, now.month, now.day)
+                        lunar_day = self.lunar_bridge.get_lunar_day(now.year, now.month, now.day)
+                        lunar_info = f"农历{lunar_month}月{lunar_day}"
+            except Exception:
+                lunar_info = ""
+        
+        # 构建包含时间信息的系统提示
+        time_context = f"当前时间是：{current_date} {current_weekday} {current_time}"
+        if lunar_info:
+            time_context += f"，{lunar_info}"
+        
         # 保存用户消息到数据库
         self.save_chat_message("user", message)
         
@@ -2849,11 +2879,45 @@ class CalendarApp:
         self.chat_text.configure(state="disabled")
         self.chat_text.see(tk.END)
         
-        # 在新线程中发送请求
-        threading.Thread(target=self.call_llm_api_stream, args=(message, config), daemon=True).start()
+        # 在新线程中发送请求，包含时间上下文
+        threading.Thread(target=self.call_llm_api_stream_with_time, args=(message, config, time_context), daemon=True).start()
     
     def call_llm_api_stream(self, message, config):
         """调用LLM API（流式）"""
+        # 获取当前时间信息
+        now = datetime.datetime.now()
+        current_date = now.strftime("%Y年%m月%d日")
+        current_time = now.strftime("%H:%M:%S")
+        current_weekday = ["星期一", "星期二", "星期三", "星期四", "星期五", "星期六", "星期日"][now.weekday()]
+        
+        # 获取农历信息（如果可用）
+        lunar_info = ""
+        if LUNAR_AVAILABLE:
+            try:
+                if LUNAR_PYTHON_AVAILABLE:
+                    from lunar_python import Lunar, Solar
+                    solar = Solar.fromYmd(now.year, now.month, now.day)
+                    lunar = Lunar.fromSolar(solar)
+                    lunar_month = lunar.getMonthInChinese()
+                    lunar_day = lunar.getDayInChinese()
+                    lunar_info = f"农历{lunar_month}月{lunar_day}"
+                elif LUNAR_JS_AVAILABLE:
+                    if hasattr(self, 'lunar_bridge'):
+                        lunar_month = self.lunar_bridge.get_lunar_month(now.year, now.month, now.day)
+                        lunar_day = self.lunar_bridge.get_lunar_day(now.year, now.month, now.day)
+                        lunar_info = f"农历{lunar_month}月{lunar_day}"
+            except Exception:
+                lunar_info = ""
+        
+        # 构建包含时间信息的系统提示
+        time_context = f"当前时间是：{current_date} {current_weekday} {current_time}"
+        if lunar_info:
+            time_context += f"，{lunar_info}"
+        
+        self.call_llm_api_stream_with_time(message, config, time_context)
+    
+    def call_llm_api_stream_with_time(self, message, config, time_context):
+        """调用LLM API（流式，包含时间信息）"""
         try:
             # 构建请求URL
             url = f"{config['base_uri']}/chat/completions"
@@ -2864,8 +2928,13 @@ class CalendarApp:
                 "Content-Type": "application/json"
             }
             
-            # 构建消息历史（包含当前消息）
+            # 构建消息历史（包含时间信息和当前消息）
             messages = []
+            
+            # 添加系统消息，包含当前时间信息
+            messages.append({"role": "system", "content": time_context})
+            
+            # 添加历史消息
             for msg in self.current_messages:
                 messages.append({"role": msg["role"], "content": msg["content"]})
             
@@ -2889,7 +2958,7 @@ class CalendarApp:
         except Exception as e:
             # 如果流式请求失败，尝试非流式请求
             try:
-                self.root.after(0, self.fallback_to_non_stream, message, config)
+                self.root.after(0, self.fallback_to_non_stream_with_time, message, config, time_context)
             except Exception as fallback_error:
                 error_msg = f"流式和非流式请求都失败: {str(e)}"
                 self.root.after(0, self.update_chat_with_error, error_msg)
@@ -2958,6 +3027,40 @@ class CalendarApp:
     
     def fallback_to_non_stream(self, message, config):
         """回退到非流式请求"""
+        # 获取当前时间信息
+        now = datetime.datetime.now()
+        current_date = now.strftime("%Y年%m月%d日")
+        current_time = now.strftime("%H:%M:%S")
+        current_weekday = ["星期一", "星期二", "星期三", "星期四", "星期五", "星期六", "星期日"][now.weekday()]
+        
+        # 获取农历信息（如果可用）
+        lunar_info = ""
+        if LUNAR_AVAILABLE:
+            try:
+                if LUNAR_PYTHON_AVAILABLE:
+                    from lunar_python import Lunar, Solar
+                    solar = Solar.fromYmd(now.year, now.month, now.day)
+                    lunar = Lunar.fromSolar(solar)
+                    lunar_month = lunar.getMonthInChinese()
+                    lunar_day = lunar.getDayInChinese()
+                    lunar_info = f"农历{lunar_month}月{lunar_day}"
+                elif LUNAR_JS_AVAILABLE:
+                    if hasattr(self, 'lunar_bridge'):
+                        lunar_month = self.lunar_bridge.get_lunar_month(now.year, now.month, now.day)
+                        lunar_day = self.lunar_bridge.get_lunar_day(now.year, now.month, now.day)
+                        lunar_info = f"农历{lunar_month}月{lunar_day}"
+            except Exception:
+                lunar_info = ""
+        
+        # 构建包含时间信息的系统提示
+        time_context = f"当前时间是：{current_date} {current_weekday} {current_time}"
+        if lunar_info:
+            time_context += f"，{lunar_info}"
+        
+        self.fallback_to_non_stream_with_time(message, config, time_context)
+    
+    def fallback_to_non_stream_with_time(self, message, config, time_context):
+        """回退到非流式请求（包含时间信息）"""
         # 删除"AI助手: "消息
         self.chat_text.configure(state="normal")
         last_line_start = self.chat_text.index("end-2l linestart")
@@ -2970,7 +3073,7 @@ class CalendarApp:
         self.chat_text.see(tk.END)
         
         # 在新线程中发送非流式请求
-        threading.Thread(target=self.call_llm_api, args=(message, config), daemon=True).start()
+        threading.Thread(target=self.call_llm_api_with_time, args=(message, config, time_context), daemon=True).start()
     
     def call_llm_api(self, message, config):
         """调用LLM API（非流式，备用）"""
@@ -3053,6 +3156,61 @@ class CalendarApp:
         self.chat_text.insert(tk.END, f"AI助手: 抱歉，出现了错误: {error_msg}\n\n", "system")
         self.chat_text.configure(state="disabled")
         self.chat_text.see(tk.END)
+    
+    def call_llm_api_with_time(self, message, config, time_context):
+        """非流式API调用（包含时间信息）"""
+        try:
+            # 构建请求URL
+            url = f"{config['base_uri']}/chat/completions"
+            
+            # 构建请求头
+            headers = {
+                "Authorization": f"Bearer {config['api_key']}",
+                "Content-Type": "application/json"
+            }
+            
+            # 构建消息历史（包含当前消息和时间信息）
+            messages = []
+            # 添加时间信息的系统消息
+            messages.append({"role": "system", "content": f"{time_context}。请基于当前时间信息回答用户的问题。"})
+            
+            # 添加历史消息
+            for msg in self.current_messages:
+                messages.append({"role": msg["role"], "content": msg["content"]})
+            
+            # 构建请求体
+            data = {
+                "model": config['model_name'],
+                "messages": messages,
+                "temperature": config['temperature']
+            }
+            
+            # 发送请求
+            response = requests.post(url, headers=headers, json=data, timeout=30)
+            
+            if response.status_code == 200:
+                result = response.json()
+                if 'choices' in result and len(result['choices']) > 0:
+                    ai_message = result['choices'][0]['message']['content']
+                    
+                    # 在主线程中更新UI
+                    self.root.after(0, self.update_chat_with_response, ai_message)
+                else:
+                    error_msg = "API返回格式错误"
+                    self.root.after(0, self.update_chat_with_error, error_msg)
+            else:
+                error_msg = f"API请求失败: {response.status_code} - {response.text}"
+                self.root.after(0, self.update_chat_with_error, error_msg)
+                
+        except requests.exceptions.Timeout:
+            error_msg = "请求超时，请检查网络连接"
+            self.root.after(0, self.update_chat_with_error, error_msg)
+        except requests.exceptions.RequestException as e:
+            error_msg = f"网络请求错误: {str(e)}"
+            self.root.after(0, self.update_chat_with_error, error_msg)
+        except Exception as e:
+            error_msg = f"未知错误: {str(e)}"
+            self.root.after(0, self.update_chat_with_error, error_msg)
 
 
     
