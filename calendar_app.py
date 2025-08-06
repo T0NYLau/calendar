@@ -109,6 +109,65 @@ class CalendarApp:
         # 设置定时检查提醒（每小时检查一次）
         self.schedule_reminder_check()
     
+    def search_with_search1api(self, query):
+        """使用Search1API进行联网搜索"""
+        try:
+            API_URL = "https://api.search1api.com/search"
+            
+            data = {
+                "query": query,
+                "search_service": "google",
+                "max_results": 5,
+                "crawl_results": 0,
+                "image": False,
+                "language": "zh",
+                "time_range": "day"
+            }
+            
+            headers = {
+                "Content-Type": "application/json",
+                'Authorization': 'Bearer 80FA665F-208A-47E1-98D5-D694DC6689BE'
+            }
+            
+            print(f"正在搜索: {query}")
+            response = requests.post(
+                API_URL,
+                headers=headers,
+                json=data,
+                timeout=15
+            )
+            
+            if response.status_code == 200:
+                results = response.json()
+                print(f"搜索成功，找到 {len(results.get('results', []))} 个结果")
+                return results
+            else:
+                print(f"Search1API请求失败: {response.status_code} - {response.text}")
+                return None
+        except requests.exceptions.Timeout:
+            print("搜索请求超时")
+            return None
+        except requests.exceptions.RequestException as e:
+            print(f"网络请求错误: {str(e)}")
+            return None
+        except Exception as e:
+            print(f"Search1API搜索出错: {str(e)}")
+            return None
+    
+    def format_search_results(self, search_results):
+        """格式化搜索结果"""
+        if not search_results or "results" not in search_results:
+            return "未找到相关结果。"
+        
+        formatted = ""
+        for i, result in enumerate(search_results["results"][:10], 1):  # 限制显示前10个结果
+            title = result.get("title", "无标题")
+            url = result.get("url", "无链接")
+            snippet = result.get("snippet", "无摘要")
+            formatted += f"{i}. {title}\n   {url}\n   {snippet}\n\n"
+        
+        return formatted.strip()
+    
     def create_database(self):
         """创建SQLite数据库和表"""
         conn = sqlite3.connect(self.db_path)
@@ -2924,6 +2983,45 @@ class CalendarApp:
     def call_llm_api_stream_with_time(self, message, config, time_context):
         """调用LLM API（流式，包含时间信息）"""
         try:
+            # 检查是否是搜索请求 - 支持多种格式
+            is_search_request = False
+            search_query = None
+            
+            # 支持多种搜索前缀格式
+            if message.startswith("搜索:"):
+                is_search_request = True
+                search_query = message[3:].strip()
+            elif message.startswith("搜索") and len(message) > 2:
+                is_search_request = True
+                search_query = message[2:].strip()
+            elif message.startswith("search:"):
+                is_search_request = True
+                search_query = message[7:].strip()
+            elif message.startswith("search") and len(message) > 5:
+                is_search_request = True
+                search_query = message[5:].strip()
+            
+            print(f"原始消息: {message}")
+            print(f"是否为搜索请求: {is_search_request}")
+            
+            if is_search_request and search_query:
+                print(f"搜索查询: {search_query}")
+                
+                # 使用Search1API进行搜索
+                search_results = self.search_with_search1api(search_query)
+                
+                if search_results:
+                    # 格式化搜索结果
+                    formatted_results = self.format_search_results(search_results)
+                    print(f"搜索结果格式化完成，长度: {len(formatted_results)}")
+                    # 将搜索结果添加到消息中
+                    message = f"根据您的搜索请求\"{search_query}\"，我找到了以下信息:\n\n{formatted_results}"
+                else:
+                    print("搜索失败")
+                    message = f"抱歉，搜索\"{search_query}\"时出现了问题，请稍后重试。"
+            else:
+                print("非搜索请求，使用普通模式")
+            
             # 获取详细农历信息
             detailed_lunar = self.get_detailed_lunar_context()
             
