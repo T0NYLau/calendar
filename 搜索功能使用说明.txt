@@ -35,3 +35,58 @@ AI助手现已集成联网搜索功能，可以通过Search1API获取实时信�
 - **结果格式**：标题、URL、摘要
 - **超时设置**：10秒
 - **结果限制**：最多10条
+
+
+### 1. Brave Search API  
+- **特点**：Google 级质量、无广告、支持 JSON + 摘要片段  
+- **免费额度**：每月 2 000 次查询（QPS 5）  
+- **申请**：https://api.search.brave.com/app/dashboard → Sign up → 生成 key  
+- **curl 示例**  
+```bash
+curl -H "X-Subscription-Token: YOUR_BRAVE_API_KEY" \
+     "https://api.search.brave.com/res/v1/web/search?q=gpt-4o+release+date&count=10"
+```
+- **返回字段**：`title, url, description, age, language` 等
+
+---
+
+### 2. Bing Web Search v7（Microsoft Azure 认知服务）  
+- **特点**：微软自家 Bing 索引，支持安全搜索、mkt 地域限制  
+- **免费额度**：F0 层每月 3 000 次（QPS 3）  
+- **申请**：Azure Portal → 创建「Bing Search v7」资源 → 选 F0 → 拿 Key  
+- **curl 示例**  
+```bash
+curl "https://api.bing.microsoft.com/v7.0/search?q=quantum+computer+news&mkt=en-US" \
+     -H "Ocp-Apim-Subscription-Key: YOUR_BING_KEY"
+```
+
+### 3. Jina.ai Reader Search  
+- **特点**：标榜「给 LLM 用的搜索引擎」，直接返回纯净 Markdown；支持中文  
+- **免费额度**：无需注册，默认 200 req/day；注册后可申请 10 000 req/day  
+- **curl 示例**  
+```bash
+curl "https://s.jina.ai/q=上海天气怎么样"
+```
+### 4. You.com API（自建索引+实时抓取）  
+- **免费额度**：每月 1 000 次（需邮件申请 developer key）  
+- **申请**：https://platform.you.com → Join Waitlist → 收到 key  
+- **curl 示例**  
+```bash
+curl "https://api.ydc-index.io/search?query=2024+eclipse+path" \
+     -H "X-API-Key: YOUR_YDC_KEY"
+```
+
+---
+
+### 5. Tavily Search（专为 RAG 设计）  
+- **特点**：返回「question_focused_snippet」，可直接喂给 LLM  
+- **免费额度**：每月 1 000 次（注册即送）  
+- **申请**：https://tavily.com → Dashboard → 生成 key  
+- **curl 示例**  
+```bash
+curl -X POST https://api.tavily.com/search \
+     -H "Content-Type: application/json" \
+     -d '{"api_key":"YOUR_TAVILY_KEY","query":"OpenAI o1 model release","max_results":3}'
+```
+
+---
