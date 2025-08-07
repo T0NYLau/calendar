@@ -62,87 +62,99 @@ python calendar_app.py
 6. 继续对话
 
 
-## 功能特点
+# 日历应用AI助手搜索功能使用说明
 
-### 界面设计
-- **深色主题**：与主应用保持一致的黑色背景
-- **选项卡设计**：配置管理和AI聊天分离
-- **可调整大小**：支持拖拉框体，自由放大缩小窗口
-- **聊天美化**：
-  - 用户消息：蓝色背景 (#2d4a6b)
-  - AI回复：绿色背景 (#2d6b4a)
-  - 系统消息：灰色背景 (#4a4a4a)
-- **流式显示**：AI回复实时流式显示，避免等待
-- **字体优化**：用户消息加粗，AI回复正常，系统消息斜体
-- **多行输入**：支持多行文本输入，Shift+Enter换行
+## 功能说明
+AI助手现已集成联网搜索功能，可以通过Search1API获取实时信息。
 
-### 错误处理
-- **网络超时**：30秒超时设置
-- **API错误**：显示详细的错误信息
-- **配置验证**：确保所有必填字段完整
+## 触发方式
+支持多种搜索前缀格式：
+- **中文搜索**：以"搜索"开头，如"搜索今天广州天气"
+- **英文搜索**：以"search"开头，如"search weather in Guangzhou today"
+- **带冒号格式**：支持"搜索:"或"search:"前缀
 
-### 多线程处理
-- **异步请求**：不会阻塞主界面
-- **UI更新**：在主线程中安全更新界面
+## 使用示例
+- 搜索今天广州天气
+- 搜索最新科技新闻
+- 搜索2024年奥运会
+- search latest stock market news
+- 搜索:Python编程教程
 
-## 技术实现
-
-### 数据库存储
-- 使用SQLite数据库存储配置
-- 支持多个配置管理
-- 默认配置标记
-
-### API调用
-- 使用requests库发送HTTP请求
-- 支持流式和非流式两种模式
-- 自动回退机制：流式失败时自动使用非流式
-- 完整的错误处理机制
-
-### 界面组件
-- 使用tkinter构建界面
-- 自定义深色主题样式
-- 响应式布局设计
+## 注意事项
+1. **必须包含搜索前缀**：消息必须以"搜索"或"search"开头
+2. **网络要求**：需要稳定的互联网连接
+3. **结果限制**：每次返回最多10条相关结果
+4. **响应时间**：搜索可能需要3-5秒完成
 
 ## 故障排除
+如果搜索功能无法正常工作：
+1. 检查网络连接是否正常
+2. 确认消息以"搜索"或"search"开头
+3. 查看终端输出中的调试信息
+4. 尝试使用测试脚本：python test_search.py
 
-### 常见问题
+## 技术细节
+- **API提供商**：Search1API
+- **搜索服务**：Google搜索集成
+- **结果格式**：标题、URL、摘要
+- **超时设置**：10秒
+- **结果限制**：最多10条
 
-1. **"请先配置AI模型"**
-   - 解决：在配置管理中添加至少一个配置
 
-2. **"API请求失败"**
-   - 检查网络连接
-   - 验证API密钥是否正确
-   - 确认基础URI格式正确
 
-3. **"请求超时"**
-   - 检查网络连接
-   - 尝试降低温度系数
-   - 确认API服务可用
 
-### 调试信息
-- 查看控制台输出的错误信息
-- 检查数据库中的配置是否正确
-- 验证API密钥的有效性
+# 免费搜索API推荐
 
-## 安全注意事项
-
-1. **API密钥保护**
-   - 不要在公共场合显示API密钥
-   - 定期更换API密钥
-   - 不要将配置分享给他人
-
-2. **网络安全**
-   - 确保使用HTTPS协议
-   - 避免在不安全的网络中使用
-
-## 更新日志
-
-- **v1.0**：初始版本，支持基本的AI对话功能
-- 支持多配置管理
-- 深色主题界面
-- 完整的错误处理
+## 1. Brave Search API  
+- **特点**：Google 级质量、无广告、支持 JSON + 摘要片段  
+- **免费额度**：每月 2 000 次查询（QPS 5）  
+- **申请**：https://api.search.brave.com/app/dashboard → Sign up → 生成 key  
+- **curl 示例**  
+```bash
+curl -H "X-Subscription-Token: YOUR_BRAVE_API_KEY" \
+     "https://api.search.brave.com/res/v1/web/search?q=gpt-4o+release+date&count=10"
+```
+- **返回字段**：`title, url, description, age, language` 等
 
 ---
 
-**享受与AI助手的对话体验！** 🤖✨ 
+## 2. Bing Web Search v7（Microsoft Azure 认知服务）  
+- **特点**：微软自家 Bing 索引，支持安全搜索、mkt 地域限制  
+- **免费额度**：F0 层每月 3 000 次（QPS 3）  
+- **申请**：Azure Portal → 创建「Bing Search v7」资源 → 选 F0 → 拿 Key  
+- **curl 示例**  
+```bash
+curl "https://api.bing.microsoft.com/v7.0/search?q=quantum+computer+news&mkt=en-US" \
+     -H "Ocp-Apim-Subscription-Key: YOUR_BING_KEY"
+```
+
+## 3. Jina.ai Reader Search  
+- **特点**：标榜「给 LLM 用的搜索引擎」，直接返回纯净 Markdown；支持中文  
+- **免费额度**：无需注册，默认 200 req/day；注册后可申请 10 000 req/day  
+- **curl 示例**  
+```bash
+curl "https://s.jina.ai/q=上海天气怎么样"
+```
+## 4. You.com API（自建索引+实时抓取）  
+- **免费额度**：每月 1 000 次（需邮件申请 developer key）  
+- **申请**：https://platform.you.com → Join Waitlist → 收到 key  
+- **curl 示例**  
+```bash
+curl "https://api.ydc-index.io/search?query=2024+eclipse+path" \
+     -H "X-API-Key: YOUR_YDC_KEY"
+```
+
+---
+
+## 5. Tavily Search（专为 RAG 设计）  
+- **特点**：返回「question_focused_snippet」，可直接喂给 LLM  
+- **免费额度**：每月 1 000 次（注册即送）  
+- **申请**：https://tavily.com → Dashboard → 生成 key  
+- **curl 示例**  
+```bash
+curl -X POST https://api.tavily.com/search \
+     -H "Content-Type: application/json" \
+     -d '{"api_key":"YOUR_TAVILY_KEY","query":"OpenAI o1 model release","max_results":3}'
+```
+
+---

@@ -1,0 +1,6 @@
+tkinter
+requests>=2.25.1
+pystray>=0.19.4
+Pillow>=8.0.0
+lunar-python>=1.2.0
+pyinstaller>=5.0
