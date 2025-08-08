@@ -198,16 +198,14 @@ class CalendarApp:
         # 添加LLM配置表
         cursor.execute('''
         CREATE TABLE IF NOT EXISTS llm_configs (
-            id INTEGER PRIMARY KEY,
-            name TEXT UNIQUE,
-            base_uri TEXT,
-            model_name TEXT,
-            api_key TEXT,
-            temperature REAL DEFAULT 0.7,
-            is_default INTEGER DEFAULT 0,
-            use_mcp INTEGER DEFAULT 0,
-            mcp_servers TEXT DEFAULT NULL
-        )
+                id INTEGER PRIMARY KEY,
+                name TEXT UNIQUE,
+                base_uri TEXT,
+                model_name TEXT,
+                api_key TEXT,
+                temperature REAL DEFAULT 0.7,
+                is_default INTEGER DEFAULT 0
+            )
         ''')
         
         # 添加聊天历史表
@@ -2490,14 +2488,7 @@ class CalendarApp:
         ttk.Label(title_frame, text="AI助手", font=("SimSun", 12, "bold"), 
                  style='Dark.TLabel').pack(side=tk.LEFT)
         
-        # MCP状态标签
-        self.mcp_status_label = ttk.Label(title_frame, text="", font=("SimSun", 9), 
-                                        style='Dark.TLabel', cursor="hand2")
-        self.mcp_status_label.pack(side=tk.RIGHT, padx=10)
-        self.mcp_status_label.bind("<Button-1>", lambda e: self.show_mcp_status_details())
-        
-        # 添加工具提示
-        self.create_tooltip(self.mcp_status_label, "点击查看MCP服务器状态详情")
+
         
         # 聊天历史显示区域
         self.chat_text = tk.Text(chat_history_frame, wrap=tk.WORD, bg='#1a1a1a', fg='white', 
@@ -2557,9 +2548,6 @@ class CalendarApp:
         self.current_session_id = None
         self.current_messages = []
         
-        # 更新MCP状态显示
-        self.update_mcp_status_display()
-        
         # 加载历史对话列表
         self.load_chat_sessions()
     
@@ -2572,20 +2560,15 @@ class CalendarApp:
         # 从数据库加载配置
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
-        cursor.execute("SELECT name, base_uri, model_name, temperature, is_default, use_mcp FROM llm_configs ORDER BY is_default DESC, name")
+        cursor.execute("SELECT name, base_uri, model_name, temperature, is_default FROM llm_configs ORDER BY is_default DESC, name")
 
         for row in cursor.fetchall():
-            name, base_uri, model_name, temperature, is_default, use_mcp = row
+            name, base_uri, model_name, temperature, is_default = row
             # 如果是默认配置，在名称前添加标记
             display_name = f"★ {name}" if is_default else name
-            # 添加MCP状态标记
-            mcp_status = "MCP" if use_mcp else "标准"
-            self.config_tree.insert("", tk.END, values=(display_name, base_uri, model_name, temperature, mcp_status))
+            self.config_tree.insert("", tk.END, values=(display_name, base_uri, model_name, temperature, "标准"))
 
         conn.close()
-        
-        # 更新聊天界面的MCP状态显示
-        self.update_mcp_status_display()
     
     def add_llm_config(self):
         """添加LLM配置"""
@@ -2640,16 +2623,7 @@ class CalendarApp:
             temp_label.config(text=f"{temp_var.get():.1f}")
         temp_var.trace("w", update_temp_label)
         
-        # 启用MCP
-        use_mcp_var = tk.BooleanVar()
-        use_mcp_check = ttk.Checkbutton(form_frame, text="启用MCP功能", variable=use_mcp_var, style='Dark.TCheckbutton')
-        use_mcp_check.grid(row=5, column=1, sticky=tk.W, padx=5, pady=5)
-        
-        # MCP服务器配置
-        ttk.Label(form_frame, text="MCP服务器:", style='Dark.TLabel').grid(row=6, column=0, sticky=tk.NW, padx=5, pady=5)
-        mcp_text = tk.Text(form_frame, wrap=tk.WORD, bg='#222222', fg='white', insertbackground='white', height=4, font=("SimSun", 9))
-        mcp_text.grid(row=6, column=1, sticky=tk.W, padx=5, pady=5)
-        mcp_text.insert("1.0", '{"servers": [{"name": "filesystem", "command": "uvx", "args": ["mcp-server-filesystem", "--allowed-directories", "/path/to/dir"]}]}')
+
         
         # 设为默认
         default_var = tk.BooleanVar()
@@ -2658,7 +2632,7 @@ class CalendarApp:
 
         # 按钮框架
         button_frame = ttk.Frame(form_frame, style='Dark.TFrame')
-        button_frame.grid(row=8, column=0, columnspan=2, pady=20)
+        button_frame.grid(row=6, column=0, columnspan=2, pady=20)
         
         def save_config():
             name = name_var.get().strip()
@@ -2666,21 +2640,11 @@ class CalendarApp:
             model = model_var.get().strip()
             key = key_var.get().strip()
             temp = temp_var.get()
-            use_mcp = use_mcp_var.get()
             is_default = default_var.get()
-            mcp_servers = mcp_text.get("1.0", tk.END).strip()
             
             if not all([name, uri, model, key]):
                 messagebox.showwarning("警告", "请填写所有必填字段！")
                 return
-            
-            # 验证MCP配置格式
-            if use_mcp and mcp_servers:
-                try:
-                    json.loads(mcp_servers)
-                except json.JSONDecodeError:
-                    messagebox.showerror("错误", "MCP服务器配置格式错误，请输入有效的JSON格式！")
-                    return
             
             # 保存到数据库
             conn = sqlite3.connect(self.db_path)
@@ -2692,9 +2656,9 @@ class CalendarApp:
                     cursor.execute("UPDATE llm_configs SET is_default = 0")
                 
                 cursor.execute("""
-                INSERT INTO llm_configs (name, base_uri, model_name, api_key, temperature, is_default, use_mcp, mcp_servers)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                """, (name, uri, model, key, temp, 1 if is_default else 0, 1 if use_mcp else 0, mcp_servers if use_mcp else None))
+                INSERT INTO llm_configs (name, base_uri, model_name, api_key, temperature, is_default)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """, (name, uri, model, key, temp, 1 if is_default else 0))
                 
                 conn.commit()
                 messagebox.showinfo("成功", "配置已保存！")
@@ -2725,7 +2689,7 @@ class CalendarApp:
         # 从数据库获取配置详情
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
-        cursor.execute("SELECT base_uri, model_name, api_key, temperature, is_default, use_mcp, mcp_servers FROM llm_configs WHERE name = ?", (config_name,))
+        cursor.execute("SELECT base_uri, model_name, api_key, temperature, is_default FROM llm_configs WHERE name = ?", (config_name,))
         result = cursor.fetchone()
         conn.close()
         
@@ -2733,7 +2697,7 @@ class CalendarApp:
             messagebox.showerror("错误", "配置不存在！")
             return
         
-        base_uri, model_name, api_key, temperature, is_default, use_mcp, mcp_servers = result
+        base_uri, model_name, api_key, temperature, is_default = result
         
         # 创建编辑对话框
         edit_dialog = tk.Toplevel(self.root)
@@ -2783,24 +2747,10 @@ class CalendarApp:
             temp_label.config(text=f"{temp_var.get():.1f}")
         temp_var.trace("w", update_temp_label)
         
-        # 启用MCP
-        use_mcp_var = tk.BooleanVar(value=bool(use_mcp))
-        use_mcp_check = ttk.Checkbutton(form_frame, text="启用MCP功能", variable=use_mcp_var, style='Dark.TCheckbutton')
-        use_mcp_check.grid(row=5, column=1, sticky=tk.W, padx=5, pady=5)
-        
-        # MCP服务器配置
-        ttk.Label(form_frame, text="MCP服务器:", style='Dark.TLabel').grid(row=6, column=0, sticky=tk.NW, padx=5, pady=5)
-        mcp_text = tk.Text(form_frame, wrap=tk.WORD, bg='#222222', fg='white', insertbackground='white', height=4, font=("SimSun", 9))
-        mcp_text.grid(row=6, column=1, sticky=tk.W, padx=5, pady=5)
-        if mcp_servers:
-            mcp_text.insert("1.0", mcp_servers)
-        else:
-            mcp_text.insert("1.0", '{"servers": [{"name": "filesystem", "command": "uvx", "args": ["mcp-server-filesystem", "--allowed-directories", "/path/to/dir"}]}')
-        
         # 设为默认
         default_var = tk.BooleanVar(value=bool(is_default))
         default_check = ttk.Checkbutton(form_frame, text="设为默认配置", variable=default_var, style='Dark.TCheckbutton')
-        default_check.grid(row=7, column=1, sticky=tk.W, padx=5, pady=5)
+        default_check.grid(row=5, column=1, sticky=tk.W, padx=5, pady=5)
         
         # 按钮框架
         button_frame = ttk.Frame(form_frame, style='Dark.TFrame')
@@ -2811,21 +2761,11 @@ class CalendarApp:
             model = model_var.get().strip()
             key = key_var.get().strip()
             temp = temp_var.get()
-            use_mcp = use_mcp_var.get()
             is_default = default_var.get()
-            mcp_servers = mcp_text.get("1.0", tk.END).strip()
             
             if not all([uri, model, key]):
                 messagebox.showwarning("警告", "请填写所有必填字段！")
                 return
-            
-            # 验证MCP配置格式
-            if use_mcp and mcp_servers:
-                try:
-                    json.loads(mcp_servers)
-                except json.JSONDecodeError:
-                    messagebox.showerror("错误", "MCP服务器配置格式错误，请输入有效的JSON格式！")
-                    return
             
             # 保存到数据库
             conn = sqlite3.connect(self.db_path)
@@ -2837,9 +2777,9 @@ class CalendarApp:
                     cursor.execute("UPDATE llm_configs SET is_default = 0")
                 
                 cursor.execute("""
-                UPDATE llm_configs SET base_uri = ?, model_name = ?, api_key = ?, temperature = ?, is_default = ?, use_mcp = ?, mcp_servers = ?
+                UPDATE llm_configs SET base_uri = ?, model_name = ?, api_key = ?, temperature = ?, is_default = ?
                 WHERE name = ?
-                """, (uri, model, key, temp, 1 if is_default else 0, 1 if use_mcp else 0, mcp_servers if use_mcp else None, config_name))
+                """, (uri, model, key, temp, 1 if is_default else 0, config_name))
                 
                 conn.commit()
                 messagebox.showinfo("成功", "配置已更新！")
@@ -2910,7 +2850,7 @@ class CalendarApp:
         """获取默认LLM配置"""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
-        cursor.execute("SELECT name, base_uri, model_name, api_key, temperature, use_mcp, mcp_servers FROM llm_configs WHERE is_default = 1")
+        cursor.execute("SELECT name, base_uri, model_name, api_key, temperature FROM llm_configs WHERE is_default = 1")
         result = cursor.fetchone()
         conn.close()
         
@@ -2920,9 +2860,7 @@ class CalendarApp:
                 'base_uri': result[1],
                 'model_name': result[2],
                 'api_key': result[3],
-                'temperature': result[4],
-                'use_mcp': bool(result[5]),
-                'mcp_servers': result[6]
+                'temperature': result[4]
             }
         return None
     
@@ -3687,152 +3625,7 @@ class CalendarApp:
         # 取消选中状态
         self.session_tree.selection_remove(self.session_tree.selection())
     
-    def check_mcp_servers_status(self, mcp_servers):
-        """检查MCP服务器状态"""
-        try:
-            import subprocess
-            import json
-            
-            # 检查npx是否可用
-            try:
-                # 使用shell=True来确保环境变量正确加载
-                result = subprocess.run('npx --version', shell=True, capture_output=True, text=True, timeout=5)
-                npx_available = result.returncode == 0 and result.stdout.strip() != ""
-            except (subprocess.TimeoutExpired, FileNotFoundError):
-                # 尝试使用绝对路径检查
-                try:
-                    result = subprocess.run('where npx', shell=True, capture_output=True, text=True, timeout=5)
-                    npx_available = result.returncode == 0 and result.stdout.strip() != ""
-                except:
-                    npx_available = False
-            
-            if not npx_available:
-                return {"status": "error", "message": "npx命令不可用，请确保Node.js已安装", "servers": []}
-            
-            # 检查每个MCP服务器
-            server_status = []
-            
-            # 解析mcp_servers配置
-            if isinstance(mcp_servers, dict):
-                # 如果是字典格式，转换为列表
-                servers_list = []
-                for name, config in mcp_servers.items():
-                    server_info = {
-                        "name": name,
-                        "type": "stdio",  # 默认stdio类型
-                        "status": "checking",
-                        "message": ""
-                    }
-                    if "command" in config:
-                        server_info.update(config)
-                    servers_list.append(server_info)
-                mcp_servers = servers_list
-            
-            if isinstance(mcp_servers, list):
-                for server in mcp_servers:
-                    server_info = {
-                        "name": server.get("name", "未知服务器"),
-                        "type": server.get("type", "unknown"),
-                        "status": "checking",
-                        "message": ""
-                    }
-                    
-                    try:
-                        if server.get("type") == "stdio":
-                            # 检查stdio类型的服务器
-                            command = server.get("command", "")
-                            args = server.get("args", [])
-                            
-                            # 只检查npx命令是否可用，不运行完整的服务器命令
-                            if command.lower() == "npx":
-                                # 检查npx本身
-                                try:
-                                    test_command = [command, "--version"]
-                                    result = subprocess.run(test_command, capture_output=True, text=True, timeout=3)
-                                    if result.returncode == 0:
-                                        server_info["status"] = "ready"
-                                        server_info["message"] = "npx命令可用"
-                                    else:
-                                        server_info["status"] = "error"
-                                        server_info["message"] = "npx命令执行失败"
-                                except Exception as e:
-                                    server_info["status"] = "error"
-                                    server_info["message"] = f"检查失败: {str(e)}"
-                            else:
-                                # 对于其他命令，检查命令是否存在
-                                try:
-                                    result = subprocess.run(["where", command], capture_output=True, text=True, timeout=3, shell=True)
-                                    if result.returncode == 0:
-                                        server_info["status"] = "ready"
-                                        server_info["message"] = "命令可用"
-                                    else:
-                                        server_info["status"] = "warning"
-                                        server_info["message"] = "命令可能不可用"
-                                except:
-                                    server_info["status"] = "unknown"
-                                    server_info["message"] = "无法检查命令"
-                        
-                        elif server.get("type") == "sse":
-                            # 检查SSE类型的服务器
-                            import requests
-                            url = server.get("url", "")
-                            if url:
-                                try:
-                                    response = requests.get(url, timeout=3)
-                                    if response.status_code == 200:
-                                        server_info["status"] = "ready"
-                                        server_info["message"] = "就绪"
-                                    else:
-                                        server_info["status"] = "error"
-                                        server_info["message"] = f"HTTP状态码: {response.status_code}"
-                                except requests.RequestException as e:
-                                    server_info["status"] = "error"
-                                    server_info["message"] = f"连接失败: {str(e)}"
-                        
-                        else:
-                            server_info["status"] = "unknown"
-                            server_info["message"] = "未知类型的服务器"
-                    
-                    except Exception as e:
-                        server_info["status"] = "error"
-                        server_info["message"] = f"检查失败: {str(e)}"
-                    
-                    server_status.append(server_info)
-            
-            return {"status": "success", "message": "", "servers": server_status}
-            
-        except Exception as e:
-            return {"status": "error", "message": f"检查失败: {str(e)}", "servers": []}
 
-    def update_mcp_status_display(self):
-        """更新MCP状态显示"""
-        if hasattr(self, 'mcp_status_label'):
-            config = self.get_default_llm_config()
-            if config:
-                if config.get('use_mcp', False):
-                    # 检查MCP服务器状态
-                    mcp_servers_str = config.get('mcp_servers', '{}')
-                    try:
-                        mcp_servers = json.loads(mcp_servers_str) if mcp_servers_str else {}
-                        if mcp_servers:
-                            status_result = self.check_mcp_servers_status(mcp_servers)
-                            if status_result["status"] == "error":
-                                self.mcp_status_label.config(text=f"MCP错误: {status_result['message']}", foreground="#ff6600")
-                            else:
-                                ready_count = sum(1 for s in status_result["servers"] if s["status"] == "ready")
-                                total_count = len(status_result["servers"])
-                                if ready_count == total_count:
-                                    self.mcp_status_label.config(text=f"MCP就绪 ({ready_count}/{total_count})", foreground="#00ff00")
-                                else:
-                                    self.mcp_status_label.config(text=f"MCP部分就绪 ({ready_count}/{total_count})", foreground="#ffaa00")
-                        else:
-                            self.mcp_status_label.config(text="MCP已启用(无服务器)", foreground="#ffaa00")
-                    except json.JSONDecodeError:
-                        self.mcp_status_label.config(text="MCP配置格式错误", foreground="#ff6600")
-                else:
-                    self.mcp_status_label.config(text="标准模式", foreground="#ffffff")
-            else:
-                self.mcp_status_label.config(text="未配置", foreground="#ff6666")
 
     def load_chat_sessions(self):
         """加载历史对话列表"""
@@ -3996,210 +3789,7 @@ class CalendarApp:
             self.chat_text.insert(tk.END, "AI助手: 您好！我是您的AI助手，有什么可以帮助您的吗？\n\n", "system")
             self.chat_text.configure(state="disabled")
 
-    def show_mcp_status_details(self):
-        """显示MCP服务器状态详情"""
-        config = self.get_default_llm_config()
-        if not config or not config.get('use_mcp', False):
-            messagebox.showinfo("MCP状态", "MCP功能未启用")
-            return
-        
-        # 获取MCP服务器配置
-        mcp_servers_str = config.get('mcp_servers', '[]')
-        try:
-            mcp_servers = json.loads(mcp_servers_str) if mcp_servers_str else []
-            if not mcp_servers:
-                messagebox.showinfo("MCP状态", "未配置MCP服务器")
-                return
-        except json.JSONDecodeError:
-            messagebox.showerror("错误", "MCP服务器配置格式错误")
-            return
-        
-        # 检查服务器状态
-        status_result = self.check_mcp_servers_status(mcp_servers)
-        
-        # 创建详情窗口
-        detail_window = tk.Toplevel(self.root)
-        detail_window.title("MCP服务器状态详情")
-        detail_window.geometry("500x400")
-        detail_window.configure(bg='#2b2b2b')
-        
-        # 标题
-        title_label = tk.Label(detail_window, text="MCP服务器状态", font=("SimSun", 14, "bold"), 
-                              bg='#2b2b2b', fg='white')
-        title_label.pack(pady=10)
-        
-        # 创建Treeview显示服务器状态
-        tree_frame = ttk.Frame(detail_window)
-        tree_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
-        
-        columns = ('服务器', '类型', '状态', '消息')
-        status_tree = ttk.Treeview(tree_frame, columns=columns, show='headings', height=10)
-        
-        # 设置列
-        status_tree.heading('服务器', text='服务器名称')
-        status_tree.heading('类型', text='类型')
-        status_tree.heading('状态', text='状态')
-        status_tree.heading('消息', text='详细信息')
-        
-        status_tree.column('服务器', width=150)
-        status_tree.column('类型', width=80)
-        status_tree.column('状态', width=80)
-        status_tree.column('消息', width=180)
-        
-        # 添加滚动条
-        scrollbar = ttk.Scrollbar(tree_frame, orient=tk.VERTICAL, command=status_tree.yview)
-        status_tree.configure(yscrollcommand=scrollbar.set)
-        
-        status_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-        
-        # 填充数据
-        for server in status_result.get('servers', []):
-            status_color = {
-                'ready': '绿色',
-                'error': '红色',
-                'checking': '黄色',
-                'unknown': '灰色'
-            }
-            
-            status_text = {
-                'ready': '就绪',
-                'error': '错误',
-                'checking': '检查中',
-                'unknown': '未知'
-            }
-            
-            status_tree.insert('', tk.END, values=(
-                server.get('name', '未知'),
-                server.get('type', '未知'),
-                status_text.get(server.get('status', 'unknown'), '未知'),
-                server.get('message', '')
-            ))
-        
-        # 底部信息
-        bottom_frame = ttk.Frame(detail_window)
-        bottom_frame.pack(fill=tk.X, padx=10, pady=10)
-        
-        # npx状态
-        try:
-            import subprocess
-            result = subprocess.run('npx --version', shell=True, capture_output=True, text=True, timeout=3)
-            npx_status = "可用" if result.returncode == 0 else "不可用"
-            if result.returncode == 0:
-                npx_version = result.stdout.strip()
-                npx_text = f"npx命令状态: {npx_status} (v{npx_version})"
-            else:
-                npx_text = f"npx命令状态: {npx_status}"
-        except Exception as e:
-            npx_text = f"npx命令状态: 检测失败 - {str(e)}"
-        
-        npx_label = tk.Label(bottom_frame, text=npx_text, 
-                           bg='#2b2b2b', fg='white', font=("SimSun", 10))
-        npx_label.pack(side=tk.LEFT)
-        
-        # 测试npx按钮
-        test_npx_btn = ttk.Button(bottom_frame, text="测试npx", 
-                                command=lambda: self.test_npx_command(detail_window))
-        test_npx_btn.pack(side=tk.LEFT, padx=5)
-        
-        # 刷新按钮
-        refresh_btn = ttk.Button(bottom_frame, text="刷新状态", 
-                               command=lambda: self.refresh_mcp_status(status_tree, detail_window))
-        refresh_btn.pack(side=tk.RIGHT, padx=5)
-        
-        # 关闭按钮
-        close_btn = ttk.Button(bottom_frame, text="关闭", command=detail_window.destroy)
-        close_btn.pack(side=tk.RIGHT, padx=5)
 
-    def refresh_mcp_status(self, tree, window):
-        """刷新MCP服务器状态"""
-        config = self.get_default_llm_config()
-        if not config or not config.get('use_mcp', False):
-            return
-        
-        mcp_servers_str = config.get('mcp_servers', '[]')
-        try:
-            mcp_servers = json.loads(mcp_servers_str) if mcp_servers_str else []
-            status_result = self.check_mcp_servers_status(mcp_servers)
-            
-            # 清空现有数据
-            for item in tree.get_children():
-                tree.delete(item)
-            
-            # 重新填充数据
-            for server in status_result.get('servers', []):
-                status_text = {
-                    'ready': '就绪',
-                    'error': '错误',
-                    'checking': '检查中',
-                    'unknown': '未知'
-                }
-                
-                tree.insert('', tk.END, values=(
-                    server.get('name', '未知'),
-                    server.get('type', '未知'),
-                    status_text.get(server.get('status', 'unknown'), '未知'),
-                    server.get('message', '')
-                ))
-                
-            # 更新主界面的状态显示
-            self.update_mcp_status_display()
-            
-        except Exception as e:
-            messagebox.showerror("错误", f"刷新状态失败: {str(e)}")
-
-    def test_npx_command(self, parent_window):
-        """测试npx命令的可用性"""
-        try:
-            import subprocess
-            
-            # 测试npx命令
-            test_result = []
-            
-            # 测试1: 基本npx --version
-            try:
-                result = subprocess.run('npx --version', shell=True, capture_output=True, text=True, timeout=5)
-                test_result.append(f"npx --version: {'成功' if result.returncode == 0 else '失败'}")
-                if result.returncode == 0:
-                    test_result.append(f"版本: {result.stdout.strip()}")
-            except Exception as e:
-                test_result.append(f"npx --version: 错误 - {str(e)}")
-            
-            # 测试2: where npx
-            try:
-                result = subprocess.run('where npx', shell=True, capture_output=True, text=True, timeout=5)
-                test_result.append(f"where npx: {'成功' if result.returncode == 0 else '失败'}")
-                if result.returncode == 0:
-                    test_result.append(f"路径: {result.stdout.strip()}")
-            except Exception as e:
-                test_result.append(f"where npx: 错误 - {str(e)}")
-            
-            # 测试3: node版本
-            try:
-                result = subprocess.run('node --version', shell=True, capture_output=True, text=True, timeout=5)
-                test_result.append(f"node --version: {'成功' if result.returncode == 0 else '失败'}")
-                if result.returncode == 0:
-                    test_result.append(f"Node版本: {result.stdout.strip()}")
-            except Exception as e:
-                test_result.append(f"node --version: 错误 - {str(e)}")
-            
-            # 测试4: 环境变量
-            try:
-                import os
-                path = os.environ.get('PATH', '')
-                node_path = os.environ.get('NODE_PATH', '')
-                test_result.append(f"PATH包含Node: {'nodejs' in path.lower() or 'node' in path.lower()}")
-                if node_path:
-                    test_result.append(f"NODE_PATH: {node_path}")
-            except Exception as e:
-                test_result.append(f"环境变量: 错误 - {str(e)}")
-            
-            # 显示测试结果
-            result_text = "\n".join(test_result)
-            messagebox.showinfo("npx命令测试结果", result_text)
-            
-        except Exception as e:
-            messagebox.showerror("测试错误", f"测试npx命令时出错: {str(e)}")
 
     def create_tooltip(self, widget, text):
         """创建工具提示 - 使用系统标准工具提示"""
