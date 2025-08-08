@@ -45,38 +45,39 @@ class CalendarApp:
         self.root.geometry("800x600")
         self.root.resizable(True, True)
         
-        # 移除系统标题栏并设置窗口为工具窗口样式
-        self.root.overrideredirect(True)  # 移除系统标题栏
+        # 使用标准Windows窗口样式（恢复系统标题栏）
+        self.root.overrideredirect(False)  # 恢复系统标题栏
         self.root.attributes('-topmost', False)  # 不置顶
         
-        # 设置窗口背景为黑色
-        self.root.configure(bg="black")
+        # 设置窗口背景为深色（但不是纯黑）
+        self.root.configure(bg="#2b2b2b")
         
-        # 创建自定义标题栏
-        self.create_custom_title_bar()
+        # 不再创建自定义标题栏，使用系统标准标题栏
+        # 移除自定义标题栏相关代码
+        # self.create_custom_title_bar()
         
         # 设置全局样式
         style = ttk.Style()
-        style.theme_use('clam')  # 使用 'clam' 主题以便于自定义
+        style.theme_use('clam')  # 使用 'clam' 主题
         
-        # 设置全局字体颜色为白色
-        style.configure('.', background='black', foreground='white')
+        # 设置全局样式为深色主题
+        style.configure('.', background='#2b2b2b', foreground='white')
         
         # 配置输入框样式
-        style.configure("TEntry", fieldbackground="black", foreground="white")
+        style.configure("TEntry", fieldbackground="#3c3c3c", foreground="white")
         
         # 配置Spinbox样式
-        style.configure("TSpinbox", fieldbackground="white", foreground="black")
+        style.configure("TSpinbox", fieldbackground="#3c3c3c", foreground="white")
         
         # 配置Combobox样式
-        style.configure("TCombobox", fieldbackground="white", foreground="black")
+        style.configure("TCombobox", fieldbackground="#3c3c3c", foreground="white")
         
         # 配置Treeview样式
-        style.configure("Treeview", background="black", foreground="white", fieldbackground="black")
+        style.configure("Treeview", background="#3c3c3c", foreground="white", fieldbackground="#3c3c3c")
         style.map("Treeview", background=[('selected', '#4a4a4a')], foreground=[('selected', 'white')])
         
         # 配置Treeview头部样式
-        style.configure("Treeview.Heading", background="black", foreground="white")
+        style.configure("Treeview.Heading", background="#3c3c3c", foreground="white")
         
         # 设置窗口图标和系统托盘图标
         self.setup_tray_icon()
@@ -84,8 +85,8 @@ class CalendarApp:
         # 绑定窗口关闭事件
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
         
-        # 绑定窗口拖动事件
-        self.bind_window_drag()
+        # 移除窗口拖动绑定，使用系统标准窗口管理
+        # self.bind_window_drag()
         
         # 设置当前日期
         self.current_date = datetime.datetime.now()
@@ -203,7 +204,9 @@ class CalendarApp:
             model_name TEXT,
             api_key TEXT,
             temperature REAL DEFAULT 0.7,
-            is_default INTEGER DEFAULT 0
+            is_default INTEGER DEFAULT 0,
+            use_mcp INTEGER DEFAULT 0,
+            mcp_servers TEXT DEFAULT NULL
         )
         ''')
         
@@ -527,11 +530,9 @@ class CalendarApp:
             # 创建弹窗
             popup = tk.Toplevel(self.root)
             popup.geometry("600x1000")
+            popup.title(f"农历详细信息 - {date_str}")
             
-            # 创建自定义标题栏
-            self.create_custom_popup_title_bar(popup, f"农历详细信息 - {date_str}")
-            
-            # 应用黑底白字样式
+            # 应用深色主题样式（但保留系统标准标题栏）
             self.configure_popup_style(popup)
             
             # 主框架
@@ -1093,11 +1094,9 @@ class CalendarApp:
             # 创建弹窗
             popup = tk.Toplevel(self.root)
             popup.geometry("500x450")  # 增加窗口大小以适应更多控件
+            popup.title(f"标签 - {date_str}")
             
-            # 创建自定义标题栏
-            self.create_custom_popup_title_bar(popup, f"标签 - {date_str}")
-            
-            # 应用黑底白字样式
+            # 应用深色主题样式（但保留系统标准标题栏）
             self.configure_popup_style(popup)
             
             # 标签内容显示
@@ -1330,11 +1329,9 @@ class CalendarApp:
         # 创建弹窗
         popup = tk.Toplevel(self.root)
         popup.geometry("500x450")  # 增加窗口大小以适应更多控件
+        popup.title(f"添加标签 - {date_str}")
         
-        # 创建自定义标题栏
-        self.create_custom_popup_title_bar(popup, f"添加标签 - {date_str}")
-        
-        # 应用黑底白字样式
+        # 应用深色主题样式（但保留系统标准标题栏）
         self.configure_popup_style(popup)
         
         # 标签内容显示
@@ -1669,11 +1666,9 @@ class CalendarApp:
         # 创建弹窗
         popup = tk.Toplevel(self.root)
         popup.geometry("800x500")
+        popup.title("所有标签")
         
-        # 创建自定义标题栏
-        self.create_custom_popup_title_bar(popup, "所有标签")
-        
-        # 应用黑底白字样式
+        # 应用深色主题样式（但保留系统标准标题栏）
         self.configure_popup_style(popup)
         
         # 创建框架
@@ -2280,11 +2275,9 @@ class CalendarApp:
         # 创建提醒窗口
         reminder_window = tk.Toplevel(self.root)
         reminder_window.geometry("400x300")
+        reminder_window.title("今日提醒")
         
-        # 创建自定义标题栏
-        self.create_custom_popup_title_bar(reminder_window, "今日提醒")
-        
-        # 应用黑底白字样式
+        # 应用深色主题样式（但保留系统标准标题栏）
         self.configure_popup_style(reminder_window)
         
         # 创建提醒列表框架
@@ -2342,11 +2335,9 @@ class CalendarApp:
         popup.geometry("1500x800")  # 增大初始尺寸
         popup.minsize(600, 500)    # 设置最小尺寸
         popup.resizable(True, True)  # 允许调整大小
+        popup.title("AI助手配置")
         
-        # 创建自定义标题栏
-        self.create_custom_popup_title_bar(popup, "AI助手配置")
-        
-        # 应用黑底白字样式
+        # 应用深色主题样式（但保留系统标准标题栏）
         self.configure_popup_style(popup)
         
         # 主框架
@@ -2402,13 +2393,15 @@ class CalendarApp:
                  style='Dark.TLabel').pack(anchor=tk.W, pady=(0, 10))
         
         # 创建配置列表
-        columns = ("名称", "基础URI", "模型名称", "温度")
+        columns = ("名称", "基础URI", "模型名称", "温度", "类型")
         self.config_tree = ttk.Treeview(list_frame, columns=columns, show="headings", height=6)
         
         # 设置列标题
         for col in columns:
             self.config_tree.heading(col, text=col)
-            self.config_tree.column(col, width=120)
+            self.config_tree.column(col, width=100)
+        self.config_tree.column("名称", width=120)
+        self.config_tree.column("基础URI", width=150)
         
         # 添加滚动条
         config_scrollbar = ttk.Scrollbar(list_frame, orient="vertical", command=self.config_tree.yview)
@@ -2491,8 +2484,20 @@ class CalendarApp:
         chat_history_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
         
         # 聊天历史标题
-        ttk.Label(chat_history_frame, text="AI助手", font=("SimSun", 12, "bold"), 
-                 style='Dark.TLabel').pack(anchor=tk.W, pady=(0, 10))
+        title_frame = ttk.Frame(chat_history_frame, style='Dark.TFrame')
+        title_frame.pack(fill=tk.X, pady=(0, 10))
+        
+        ttk.Label(title_frame, text="AI助手", font=("SimSun", 12, "bold"), 
+                 style='Dark.TLabel').pack(side=tk.LEFT)
+        
+        # MCP状态标签
+        self.mcp_status_label = ttk.Label(title_frame, text="", font=("SimSun", 9), 
+                                        style='Dark.TLabel', cursor="hand2")
+        self.mcp_status_label.pack(side=tk.RIGHT, padx=10)
+        self.mcp_status_label.bind("<Button-1>", lambda e: self.show_mcp_status_details())
+        
+        # 添加工具提示
+        self.create_tooltip(self.mcp_status_label, "点击查看MCP服务器状态详情")
         
         # 聊天历史显示区域
         self.chat_text = tk.Text(chat_history_frame, wrap=tk.WORD, bg='#1a1a1a', fg='white', 
@@ -2552,6 +2557,9 @@ class CalendarApp:
         self.current_session_id = None
         self.current_messages = []
         
+        # 更新MCP状态显示
+        self.update_mcp_status_display()
+        
         # 加载历史对话列表
         self.load_chat_sessions()
     
@@ -2560,30 +2568,33 @@ class CalendarApp:
         # 清空现有数据
         for item in self.config_tree.get_children():
             self.config_tree.delete(item)
-        
+
         # 从数据库加载配置
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
-        cursor.execute("SELECT name, base_uri, model_name, temperature, is_default FROM llm_configs ORDER BY is_default DESC, name")
-        
+        cursor.execute("SELECT name, base_uri, model_name, temperature, is_default, use_mcp FROM llm_configs ORDER BY is_default DESC, name")
+
         for row in cursor.fetchall():
-            name, base_uri, model_name, temperature, is_default = row
+            name, base_uri, model_name, temperature, is_default, use_mcp = row
             # 如果是默认配置，在名称前添加标记
             display_name = f"★ {name}" if is_default else name
-            self.config_tree.insert("", tk.END, values=(display_name, base_uri, model_name, temperature))
-        
+            # 添加MCP状态标记
+            mcp_status = "MCP" if use_mcp else "标准"
+            self.config_tree.insert("", tk.END, values=(display_name, base_uri, model_name, temperature, mcp_status))
+
         conn.close()
+        
+        # 更新聊天界面的MCP状态显示
+        self.update_mcp_status_display()
     
     def add_llm_config(self):
         """添加LLM配置"""
         # 创建配置对话框
         config_dialog = tk.Toplevel(self.root)
         config_dialog.geometry("500x400")
+        config_dialog.title("添加AI模型配置")
         
-        # 创建自定义标题栏
-        self.create_custom_popup_title_bar(config_dialog, "添加AI模型配置")
-        
-        # 应用黑底白字样式
+        # 应用深色主题样式（但保留系统标准标题栏）
         self.configure_popup_style(config_dialog)
         
         # 配置表单框架
@@ -2629,14 +2640,25 @@ class CalendarApp:
             temp_label.config(text=f"{temp_var.get():.1f}")
         temp_var.trace("w", update_temp_label)
         
+        # 启用MCP
+        use_mcp_var = tk.BooleanVar()
+        use_mcp_check = ttk.Checkbutton(form_frame, text="启用MCP功能", variable=use_mcp_var, style='Dark.TCheckbutton')
+        use_mcp_check.grid(row=5, column=1, sticky=tk.W, padx=5, pady=5)
+        
+        # MCP服务器配置
+        ttk.Label(form_frame, text="MCP服务器:", style='Dark.TLabel').grid(row=6, column=0, sticky=tk.NW, padx=5, pady=5)
+        mcp_text = tk.Text(form_frame, wrap=tk.WORD, bg='#222222', fg='white', insertbackground='white', height=4, font=("SimSun", 9))
+        mcp_text.grid(row=6, column=1, sticky=tk.W, padx=5, pady=5)
+        mcp_text.insert("1.0", '{"servers": [{"name": "filesystem", "command": "uvx", "args": ["mcp-server-filesystem", "--allowed-directories", "/path/to/dir"]}]}')
+        
         # 设为默认
         default_var = tk.BooleanVar()
         default_check = ttk.Checkbutton(form_frame, text="设为默认配置", variable=default_var, style='Dark.TCheckbutton')
-        default_check.grid(row=5, column=1, sticky=tk.W, padx=5, pady=5)
-        
+        default_check.grid(row=7, column=1, sticky=tk.W, padx=5, pady=5)
+
         # 按钮框架
         button_frame = ttk.Frame(form_frame, style='Dark.TFrame')
-        button_frame.grid(row=6, column=0, columnspan=2, pady=20)
+        button_frame.grid(row=8, column=0, columnspan=2, pady=20)
         
         def save_config():
             name = name_var.get().strip()
@@ -2644,11 +2666,21 @@ class CalendarApp:
             model = model_var.get().strip()
             key = key_var.get().strip()
             temp = temp_var.get()
+            use_mcp = use_mcp_var.get()
             is_default = default_var.get()
+            mcp_servers = mcp_text.get("1.0", tk.END).strip()
             
             if not all([name, uri, model, key]):
                 messagebox.showwarning("警告", "请填写所有必填字段！")
                 return
+            
+            # 验证MCP配置格式
+            if use_mcp and mcp_servers:
+                try:
+                    json.loads(mcp_servers)
+                except json.JSONDecodeError:
+                    messagebox.showerror("错误", "MCP服务器配置格式错误，请输入有效的JSON格式！")
+                    return
             
             # 保存到数据库
             conn = sqlite3.connect(self.db_path)
@@ -2660,9 +2692,9 @@ class CalendarApp:
                     cursor.execute("UPDATE llm_configs SET is_default = 0")
                 
                 cursor.execute("""
-                INSERT INTO llm_configs (name, base_uri, model_name, api_key, temperature, is_default)
-                VALUES (?, ?, ?, ?, ?, ?)
-                """, (name, uri, model, key, temp, 1 if is_default else 0))
+                INSERT INTO llm_configs (name, base_uri, model_name, api_key, temperature, is_default, use_mcp, mcp_servers)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """, (name, uri, model, key, temp, 1 if is_default else 0, 1 if use_mcp else 0, mcp_servers if use_mcp else None))
                 
                 conn.commit()
                 messagebox.showinfo("成功", "配置已保存！")
@@ -2693,7 +2725,7 @@ class CalendarApp:
         # 从数据库获取配置详情
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
-        cursor.execute("SELECT base_uri, model_name, api_key, temperature, is_default FROM llm_configs WHERE name = ?", (config_name,))
+        cursor.execute("SELECT base_uri, model_name, api_key, temperature, is_default, use_mcp, mcp_servers FROM llm_configs WHERE name = ?", (config_name,))
         result = cursor.fetchone()
         conn.close()
         
@@ -2701,16 +2733,14 @@ class CalendarApp:
             messagebox.showerror("错误", "配置不存在！")
             return
         
-        base_uri, model_name, api_key, temperature, is_default = result
+        base_uri, model_name, api_key, temperature, is_default, use_mcp, mcp_servers = result
         
         # 创建编辑对话框
         edit_dialog = tk.Toplevel(self.root)
         edit_dialog.geometry("500x400")
+        edit_dialog.title(f"编辑配置 - {config_name}")
         
-        # 创建自定义标题栏
-        self.create_custom_popup_title_bar(edit_dialog, f"编辑配置 - {config_name}")
-        
-        # 应用黑底白字样式
+        # 应用深色主题样式（但保留系统标准标题栏）
         self.configure_popup_style(edit_dialog)
         
         # 配置表单框架
@@ -2753,25 +2783,49 @@ class CalendarApp:
             temp_label.config(text=f"{temp_var.get():.1f}")
         temp_var.trace("w", update_temp_label)
         
+        # 启用MCP
+        use_mcp_var = tk.BooleanVar(value=bool(use_mcp))
+        use_mcp_check = ttk.Checkbutton(form_frame, text="启用MCP功能", variable=use_mcp_var, style='Dark.TCheckbutton')
+        use_mcp_check.grid(row=5, column=1, sticky=tk.W, padx=5, pady=5)
+        
+        # MCP服务器配置
+        ttk.Label(form_frame, text="MCP服务器:", style='Dark.TLabel').grid(row=6, column=0, sticky=tk.NW, padx=5, pady=5)
+        mcp_text = tk.Text(form_frame, wrap=tk.WORD, bg='#222222', fg='white', insertbackground='white', height=4, font=("SimSun", 9))
+        mcp_text.grid(row=6, column=1, sticky=tk.W, padx=5, pady=5)
+        if mcp_servers:
+            mcp_text.insert("1.0", mcp_servers)
+        else:
+            mcp_text.insert("1.0", '{"servers": [{"name": "filesystem", "command": "uvx", "args": ["mcp-server-filesystem", "--allowed-directories", "/path/to/dir"}]}')
+        
         # 设为默认
         default_var = tk.BooleanVar(value=bool(is_default))
         default_check = ttk.Checkbutton(form_frame, text="设为默认配置", variable=default_var, style='Dark.TCheckbutton')
-        default_check.grid(row=5, column=1, sticky=tk.W, padx=5, pady=5)
+        default_check.grid(row=7, column=1, sticky=tk.W, padx=5, pady=5)
         
         # 按钮框架
         button_frame = ttk.Frame(form_frame, style='Dark.TFrame')
-        button_frame.grid(row=6, column=0, columnspan=2, pady=20)
+        button_frame.grid(row=8, column=0, columnspan=2, pady=20)
         
         def save_config():
             uri = uri_var.get().strip()
             model = model_var.get().strip()
             key = key_var.get().strip()
             temp = temp_var.get()
+            use_mcp = use_mcp_var.get()
             is_default = default_var.get()
+            mcp_servers = mcp_text.get("1.0", tk.END).strip()
             
             if not all([uri, model, key]):
                 messagebox.showwarning("警告", "请填写所有必填字段！")
                 return
+            
+            # 验证MCP配置格式
+            if use_mcp and mcp_servers:
+                try:
+                    json.loads(mcp_servers)
+                except json.JSONDecodeError:
+                    messagebox.showerror("错误", "MCP服务器配置格式错误，请输入有效的JSON格式！")
+                    return
             
             # 保存到数据库
             conn = sqlite3.connect(self.db_path)
@@ -2783,9 +2837,9 @@ class CalendarApp:
                     cursor.execute("UPDATE llm_configs SET is_default = 0")
                 
                 cursor.execute("""
-                UPDATE llm_configs SET base_uri = ?, model_name = ?, api_key = ?, temperature = ?, is_default = ?
+                UPDATE llm_configs SET base_uri = ?, model_name = ?, api_key = ?, temperature = ?, is_default = ?, use_mcp = ?, mcp_servers = ?
                 WHERE name = ?
-                """, (uri, model, key, temp, 1 if is_default else 0, config_name))
+                """, (uri, model, key, temp, 1 if is_default else 0, 1 if use_mcp else 0, mcp_servers if use_mcp else None, config_name))
                 
                 conn.commit()
                 messagebox.showinfo("成功", "配置已更新！")
@@ -2856,7 +2910,7 @@ class CalendarApp:
         """获取默认LLM配置"""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
-        cursor.execute("SELECT name, base_uri, model_name, api_key, temperature FROM llm_configs WHERE is_default = 1")
+        cursor.execute("SELECT name, base_uri, model_name, api_key, temperature, use_mcp, mcp_servers FROM llm_configs WHERE is_default = 1")
         result = cursor.fetchone()
         conn.close()
         
@@ -2866,7 +2920,9 @@ class CalendarApp:
                 'base_uri': result[1],
                 'model_name': result[2],
                 'api_key': result[3],
-                'temperature': result[4]
+                'temperature': result[4],
+                'use_mcp': bool(result[5]),
+                'mcp_servers': result[6]
             }
         return None
     
@@ -3397,11 +3453,9 @@ class CalendarApp:
         popup = tk.Toplevel(self.root)
         popup.geometry("400x200")
         popup.attributes("-topmost", True)  # 置顶显示
+        popup.title(f"提醒 - {reminder_time}")
         
-        # 创建自定义标题栏
-        self.create_custom_popup_title_bar(popup, f"提醒 - {reminder_time}")
-        
-        # 应用黑底白字样式
+        # 应用深色主题样式（但保留系统标准标题栏）
         self.configure_popup_style(popup)
         
         # 提醒内容显示
@@ -3482,97 +3536,23 @@ class CalendarApp:
                        troughcolor='#333333', slidercolor='#666666')
 
     def create_custom_popup_title_bar(self, popup, title):
-        """创建自定义黑底白字标题栏"""
-        # 隐藏原始标题栏
-        popup.overrideredirect(True)
-        
-        # 创建自定义标题栏
-        title_bar = tk.Frame(popup, bg='#000000', relief='flat', height=32)
-        title_bar.pack(fill=tk.X, side=tk.TOP)
-        title_bar.pack_propagate(False)
-        
-        # 标题文字
-        title_label = tk.Label(
-            title_bar, 
-            text=title, 
-            bg='#000000', 
-            fg='#FFFFFF',
-            font=('Segoe UI', 10),
-            anchor='w'
-        )
-        title_label.pack(side=tk.LEFT, padx=10, fill=tk.X, expand=True)
-        
-        # 窗口控制按钮框架
-        control_frame = tk.Frame(title_bar, bg='#000000')
-        control_frame.pack(side=tk.RIGHT)
-        
-        # 关闭按钮
-        close_btn = tk.Button(
-            control_frame, 
-            text='✕', 
-            bg='#000000', 
-            fg='#FFFFFF',
-            activebackground='#e81123', 
-            activeforeground='#FFFFFF',
-            bd=0, 
-            font=('Segoe UI', 12),
-            width=3, 
-            height=1,
-            command=popup.destroy
-        )
-        close_btn.pack(side=tk.RIGHT)
-        
-        # 最小化按钮
-        minimize_btn = tk.Button(
-            control_frame, 
-            text='—', 
-            bg='#000000', 
-            fg='#FFFFFF',
-            activebackground='#333333', 
-            activeforeground='#FFFFFF',
-            bd=0, 
-            font=('Segoe UI', 12),
-            width=3, 
-            height=1,
-            command=lambda: popup.withdraw()
-        )
-        minimize_btn.pack(side=tk.RIGHT)
-        
-        # 绑定拖动功能
-        def start_move(event):
-            popup.x = event.x
-            popup.y = event.y
-        
-        def stop_move(event):
-            popup.x = None
-            popup.y = None
-        
-        def do_move(event):
-            deltax = event.x - popup.x
-            deltay = event.y - popup.y
-            x = popup.winfo_x() + deltax
-            y = popup.winfo_y() + deltay
-            popup.geometry(f"+{x}+{y}")
-        
-        title_bar.bind("<ButtonPress-1>", start_move)
-        title_bar.bind("<ButtonRelease-1>", stop_move)
-        title_bar.bind("<B1-Motion>", do_move)
-        title_label.bind("<ButtonPress-1>", start_move)
-        title_label.bind("<ButtonRelease-1>", stop_move)
-        title_label.bind("<B1-Motion>", do_move)
-        
-        return title_bar
+        """已废弃：创建自定义黑底白字标题栏 - 现在使用系统标准标题栏"""
+        # 使用系统标准标题栏，不再创建自定义标题栏
+        popup.title(title)  # 设置标准窗口标题
+        # 不再调用overrideredirect，保持系统标准窗口样式
+        return None
 
     def show_custom_message(self, title, message, message_type="info"):
-        """显示自定义消息对话框，替代标准messagebox"""
+        """显示消息对话框 - 使用系统标准窗口"""
         popup = tk.Toplevel(self.root)
+        popup.title(title)  # 使用系统标准标题
         popup.geometry("400x200")
         popup.resizable(False, False)
         
-        # 创建自定义标题栏
-        self.create_custom_popup_title_bar(popup, title)
+        # 不再创建自定义标题栏
+        # self.create_custom_popup_title_bar(popup, title)
         
-        # 应用黑底白字样式
+        # 应用深色主题样式（但保留系统标准标题栏）
         self.configure_popup_style(popup)
         
         # 主框架
@@ -3642,155 +3622,52 @@ class CalendarApp:
         return getattr(popup, 'result', True)
 
     def create_custom_title_bar(self):
-        """创建自定义标题栏 - Windows 11 24H2风格黑底白字"""
-        # 创建标题栏框架
-        self.title_bar = tk.Frame(self.root, bg='#000000', relief='flat', height=32)
-        self.title_bar.pack(fill=tk.X, side=tk.TOP)
-        self.title_bar.pack_propagate(False)  # 固定高度
-        
-        # 标题栏图标和文字
-        title_frame = tk.Frame(self.title_bar, bg='#000000')
-        title_frame.pack(side=tk.LEFT, padx=10, fill=tk.X, expand=True)
-        
-        # 应用标题
-        self.title_label = tk.Label(
-            title_frame, 
-            text="日历应用 - 公历/农历查看器", 
-            bg='#000000', 
-            fg='#FFFFFF',
-            font=('Segoe UI', 10),
-            anchor='w'
-        )
-        self.title_label.pack(side=tk.LEFT, padx=(0, 5))
-        
-        # 窗口控制按钮框架
-        control_frame = tk.Frame(self.title_bar, bg='#000000')
-        control_frame.pack(side=tk.RIGHT)
-        
-        # 最小化按钮
-        self.minimize_btn = tk.Button(
-            control_frame, 
-            text='—', 
-            bg='#000000', 
-            fg='#FFFFFF',
-            activebackground='#333333', 
-            activeforeground='#FFFFFF',
-            bd=0, 
-            font=('Segoe UI', 10, 'bold'),
-            width=3, 
-            height=1,
-            command=self.minimize_window
-        )
-        self.minimize_btn.pack(side=tk.RIGHT, padx=1)
-        
-        # 最大化/还原按钮
-        self.maximize_btn = tk.Button(
-            control_frame, 
-            text='□', 
-            bg='#000000', 
-            fg='#FFFFFF',
-            activebackground='#333333', 
-            activeforeground='#FFFFFF',
-            bd=0, 
-            font=('Segoe UI', 10, 'bold'),
-            width=3, 
-            height=1,
-            command=self.toggle_maximize
-        )
-        self.maximize_btn.pack(side=tk.RIGHT, padx=1)
-        
-        # 关闭按钮
-        self.close_btn = tk.Button(
-            control_frame, 
-            text='×', 
-            bg='#000000', 
-            fg='#FFFFFF',
-            activebackground='#C42B1C', 
-            activeforeground='#FFFFFF',
-            bd=0, 
-            font=('Segoe UI', 12, 'bold'),
-            width=3, 
-            height=1,
-            command=self.on_close
-        )
-        self.close_btn.pack(side=tk.RIGHT, padx=1)
-        
-        # 绑定标题栏鼠标事件
-        self.title_bar.bind('<Button-1>', self.start_move)
-        self.title_bar.bind('<ButtonRelease-1>', self.stop_move)
-        self.title_bar.bind('<B1-Motion>', self.do_move)
-        self.title_label.bind('<Button-1>', self.start_move)
-        self.title_label.bind('<ButtonRelease-1>', self.stop_move)
-        self.title_label.bind('<B1-Motion>', self.do_move)
-        
-        # 绑定按钮悬停效果
-        self.minimize_btn.bind('<Enter>', lambda e: self.on_hover(e, self.minimize_btn))
-        self.minimize_btn.bind('<Leave>', lambda e: self.on_leave(e, self.minimize_btn))
-        self.maximize_btn.bind('<Enter>', lambda e: self.on_hover(e, self.maximize_btn))
-        self.maximize_btn.bind('<Leave>', lambda e: self.on_leave(e, self.maximize_btn))
-        self.close_btn.bind('<Enter>', lambda e: self.on_hover(e, self.close_btn, is_close=True))
-        self.close_btn.bind('<Leave>', lambda e: self.on_leave(e, self.close_btn))
+        """已废弃：创建自定义标题栏 - 现在使用系统标准标题栏"""
+        # 此方法已废弃，使用系统标准标题栏
+        pass
 
     def bind_window_drag(self):
-        """绑定窗口拖动功能"""
-        self.root.bind('<Button-1>', self.start_move)
-        self.root.bind('<ButtonRelease-1>', self.stop_move)
-        self.root.bind('<B1-Motion>', self.do_move)
+        """已废弃：绑定窗口拖动功能 - 现在使用系统标准窗口管理"""
+        # 此方法已废弃，使用系统标准窗口管理
+        pass
 
     def start_move(self, event):
-        """开始移动窗口"""
-        self.x = event.x
-        self.y = event.y
+        """已废弃：开始移动窗口"""
+        # 此方法已废弃
+        pass
 
     def stop_move(self, event):
-        """停止移动窗口"""
-        self.x = None
-        self.y = None
+        """已废弃：停止移动窗口"""
+        # 此方法已废弃
+        pass
 
     def do_move(self, event):
-        """执行窗口移动"""
-        deltax = event.x - self.x
-        deltay = event.y - self.y
-        x = self.root.winfo_x() + deltax
-        y = self.root.winfo_y() + deltay
-        self.root.geometry(f"+{x}+{y}")
+        """已废弃：执行窗口移动"""
+        # 此方法已废弃
+        pass
 
     def minimize_window(self):
-        """最小化窗口 - 使用系统托盘"""
-        if TRAY_AVAILABLE:
-            # 隐藏窗口到系统托盘
-            self.root.withdraw()
-        else:
-            # 如果没有系统托盘支持，使用备用方案
-            try:
-                # 临时恢复窗口装饰以便最小化
-                self.root.overrideredirect(False)
-                self.root.iconify()
-                # 在窗口恢复时重新移除装饰
-                self.root.after(100, lambda: self.root.overrideredirect(True))
-            except Exception as e:
-                print(f"最小化窗口时出错: {e}")
-                messagebox.showinfo("提示", "最小化功能受限，请使用系统托盘图标恢复窗口")
+        """最小化窗口 - 使用系统标准最小化"""
+        # 使用系统标准最小化功能
+        self.root.iconify()
 
     def toggle_maximize(self):
-        """切换最大化/还原窗口"""
+        """切换最大化/还原窗口 - 使用系统标准功能"""
+        # 使用系统标准最大化/还原功能
         if self.root.state() == 'zoomed':
             self.root.state('normal')
-            self.maximize_btn.config(text='□')
         else:
             self.root.state('zoomed')
-            self.maximize_btn.config(text='❐')
 
     def on_hover(self, event, button, is_close=False):
-        """按钮悬停效果"""
-        if is_close:
-            button.config(bg='#C42B1C')
-        else:
-            button.config(bg='#333333')
+        """已废弃：按钮悬停效果 - 不再使用自定义按钮"""
+        # 此方法已废弃
+        pass
 
     def on_leave(self, event, button):
-        """按钮离开效果"""
-        button.config(bg='#000000')
+        """已废弃：按钮离开效果 - 不再使用自定义按钮"""
+        # 此方法已废弃
+        pass
 
     # 历史对话管理方法
     def new_chat_session(self):
@@ -3810,6 +3687,153 @@ class CalendarApp:
         # 取消选中状态
         self.session_tree.selection_remove(self.session_tree.selection())
     
+    def check_mcp_servers_status(self, mcp_servers):
+        """检查MCP服务器状态"""
+        try:
+            import subprocess
+            import json
+            
+            # 检查npx是否可用
+            try:
+                # 使用shell=True来确保环境变量正确加载
+                result = subprocess.run('npx --version', shell=True, capture_output=True, text=True, timeout=5)
+                npx_available = result.returncode == 0 and result.stdout.strip() != ""
+            except (subprocess.TimeoutExpired, FileNotFoundError):
+                # 尝试使用绝对路径检查
+                try:
+                    result = subprocess.run('where npx', shell=True, capture_output=True, text=True, timeout=5)
+                    npx_available = result.returncode == 0 and result.stdout.strip() != ""
+                except:
+                    npx_available = False
+            
+            if not npx_available:
+                return {"status": "error", "message": "npx命令不可用，请确保Node.js已安装", "servers": []}
+            
+            # 检查每个MCP服务器
+            server_status = []
+            
+            # 解析mcp_servers配置
+            if isinstance(mcp_servers, dict):
+                # 如果是字典格式，转换为列表
+                servers_list = []
+                for name, config in mcp_servers.items():
+                    server_info = {
+                        "name": name,
+                        "type": "stdio",  # 默认stdio类型
+                        "status": "checking",
+                        "message": ""
+                    }
+                    if "command" in config:
+                        server_info.update(config)
+                    servers_list.append(server_info)
+                mcp_servers = servers_list
+            
+            if isinstance(mcp_servers, list):
+                for server in mcp_servers:
+                    server_info = {
+                        "name": server.get("name", "未知服务器"),
+                        "type": server.get("type", "unknown"),
+                        "status": "checking",
+                        "message": ""
+                    }
+                    
+                    try:
+                        if server.get("type") == "stdio":
+                            # 检查stdio类型的服务器
+                            command = server.get("command", "")
+                            args = server.get("args", [])
+                            
+                            # 只检查npx命令是否可用，不运行完整的服务器命令
+                            if command.lower() == "npx":
+                                # 检查npx本身
+                                try:
+                                    test_command = [command, "--version"]
+                                    result = subprocess.run(test_command, capture_output=True, text=True, timeout=3)
+                                    if result.returncode == 0:
+                                        server_info["status"] = "ready"
+                                        server_info["message"] = "npx命令可用"
+                                    else:
+                                        server_info["status"] = "error"
+                                        server_info["message"] = "npx命令执行失败"
+                                except Exception as e:
+                                    server_info["status"] = "error"
+                                    server_info["message"] = f"检查失败: {str(e)}"
+                            else:
+                                # 对于其他命令，检查命令是否存在
+                                try:
+                                    result = subprocess.run(["where", command], capture_output=True, text=True, timeout=3, shell=True)
+                                    if result.returncode == 0:
+                                        server_info["status"] = "ready"
+                                        server_info["message"] = "命令可用"
+                                    else:
+                                        server_info["status"] = "warning"
+                                        server_info["message"] = "命令可能不可用"
+                                except:
+                                    server_info["status"] = "unknown"
+                                    server_info["message"] = "无法检查命令"
+                        
+                        elif server.get("type") == "sse":
+                            # 检查SSE类型的服务器
+                            import requests
+                            url = server.get("url", "")
+                            if url:
+                                try:
+                                    response = requests.get(url, timeout=3)
+                                    if response.status_code == 200:
+                                        server_info["status"] = "ready"
+                                        server_info["message"] = "就绪"
+                                    else:
+                                        server_info["status"] = "error"
+                                        server_info["message"] = f"HTTP状态码: {response.status_code}"
+                                except requests.RequestException as e:
+                                    server_info["status"] = "error"
+                                    server_info["message"] = f"连接失败: {str(e)}"
+                        
+                        else:
+                            server_info["status"] = "unknown"
+                            server_info["message"] = "未知类型的服务器"
+                    
+                    except Exception as e:
+                        server_info["status"] = "error"
+                        server_info["message"] = f"检查失败: {str(e)}"
+                    
+                    server_status.append(server_info)
+            
+            return {"status": "success", "message": "", "servers": server_status}
+            
+        except Exception as e:
+            return {"status": "error", "message": f"检查失败: {str(e)}", "servers": []}
+
+    def update_mcp_status_display(self):
+        """更新MCP状态显示"""
+        if hasattr(self, 'mcp_status_label'):
+            config = self.get_default_llm_config()
+            if config:
+                if config.get('use_mcp', False):
+                    # 检查MCP服务器状态
+                    mcp_servers_str = config.get('mcp_servers', '{}')
+                    try:
+                        mcp_servers = json.loads(mcp_servers_str) if mcp_servers_str else {}
+                        if mcp_servers:
+                            status_result = self.check_mcp_servers_status(mcp_servers)
+                            if status_result["status"] == "error":
+                                self.mcp_status_label.config(text=f"MCP错误: {status_result['message']}", foreground="#ff6600")
+                            else:
+                                ready_count = sum(1 for s in status_result["servers"] if s["status"] == "ready")
+                                total_count = len(status_result["servers"])
+                                if ready_count == total_count:
+                                    self.mcp_status_label.config(text=f"MCP就绪 ({ready_count}/{total_count})", foreground="#00ff00")
+                                else:
+                                    self.mcp_status_label.config(text=f"MCP部分就绪 ({ready_count}/{total_count})", foreground="#ffaa00")
+                        else:
+                            self.mcp_status_label.config(text="MCP已启用(无服务器)", foreground="#ffaa00")
+                    except json.JSONDecodeError:
+                        self.mcp_status_label.config(text="MCP配置格式错误", foreground="#ff6600")
+                else:
+                    self.mcp_status_label.config(text="标准模式", foreground="#ffffff")
+            else:
+                self.mcp_status_label.config(text="未配置", foreground="#ff6666")
+
     def load_chat_sessions(self):
         """加载历史对话列表"""
         # 清空现有数据
@@ -3971,6 +3995,238 @@ class CalendarApp:
             self.chat_text.delete("1.0", tk.END)
             self.chat_text.insert(tk.END, "AI助手: 您好！我是您的AI助手，有什么可以帮助您的吗？\n\n", "system")
             self.chat_text.configure(state="disabled")
+
+    def show_mcp_status_details(self):
+        """显示MCP服务器状态详情"""
+        config = self.get_default_llm_config()
+        if not config or not config.get('use_mcp', False):
+            messagebox.showinfo("MCP状态", "MCP功能未启用")
+            return
+        
+        # 获取MCP服务器配置
+        mcp_servers_str = config.get('mcp_servers', '[]')
+        try:
+            mcp_servers = json.loads(mcp_servers_str) if mcp_servers_str else []
+            if not mcp_servers:
+                messagebox.showinfo("MCP状态", "未配置MCP服务器")
+                return
+        except json.JSONDecodeError:
+            messagebox.showerror("错误", "MCP服务器配置格式错误")
+            return
+        
+        # 检查服务器状态
+        status_result = self.check_mcp_servers_status(mcp_servers)
+        
+        # 创建详情窗口
+        detail_window = tk.Toplevel(self.root)
+        detail_window.title("MCP服务器状态详情")
+        detail_window.geometry("500x400")
+        detail_window.configure(bg='#2b2b2b')
+        
+        # 标题
+        title_label = tk.Label(detail_window, text="MCP服务器状态", font=("SimSun", 14, "bold"), 
+                              bg='#2b2b2b', fg='white')
+        title_label.pack(pady=10)
+        
+        # 创建Treeview显示服务器状态
+        tree_frame = ttk.Frame(detail_window)
+        tree_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        
+        columns = ('服务器', '类型', '状态', '消息')
+        status_tree = ttk.Treeview(tree_frame, columns=columns, show='headings', height=10)
+        
+        # 设置列
+        status_tree.heading('服务器', text='服务器名称')
+        status_tree.heading('类型', text='类型')
+        status_tree.heading('状态', text='状态')
+        status_tree.heading('消息', text='详细信息')
+        
+        status_tree.column('服务器', width=150)
+        status_tree.column('类型', width=80)
+        status_tree.column('状态', width=80)
+        status_tree.column('消息', width=180)
+        
+        # 添加滚动条
+        scrollbar = ttk.Scrollbar(tree_frame, orient=tk.VERTICAL, command=status_tree.yview)
+        status_tree.configure(yscrollcommand=scrollbar.set)
+        
+        status_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        
+        # 填充数据
+        for server in status_result.get('servers', []):
+            status_color = {
+                'ready': '绿色',
+                'error': '红色',
+                'checking': '黄色',
+                'unknown': '灰色'
+            }
+            
+            status_text = {
+                'ready': '就绪',
+                'error': '错误',
+                'checking': '检查中',
+                'unknown': '未知'
+            }
+            
+            status_tree.insert('', tk.END, values=(
+                server.get('name', '未知'),
+                server.get('type', '未知'),
+                status_text.get(server.get('status', 'unknown'), '未知'),
+                server.get('message', '')
+            ))
+        
+        # 底部信息
+        bottom_frame = ttk.Frame(detail_window)
+        bottom_frame.pack(fill=tk.X, padx=10, pady=10)
+        
+        # npx状态
+        try:
+            import subprocess
+            result = subprocess.run('npx --version', shell=True, capture_output=True, text=True, timeout=3)
+            npx_status = "可用" if result.returncode == 0 else "不可用"
+            if result.returncode == 0:
+                npx_version = result.stdout.strip()
+                npx_text = f"npx命令状态: {npx_status} (v{npx_version})"
+            else:
+                npx_text = f"npx命令状态: {npx_status}"
+        except Exception as e:
+            npx_text = f"npx命令状态: 检测失败 - {str(e)}"
+        
+        npx_label = tk.Label(bottom_frame, text=npx_text, 
+                           bg='#2b2b2b', fg='white', font=("SimSun", 10))
+        npx_label.pack(side=tk.LEFT)
+        
+        # 测试npx按钮
+        test_npx_btn = ttk.Button(bottom_frame, text="测试npx", 
+                                command=lambda: self.test_npx_command(detail_window))
+        test_npx_btn.pack(side=tk.LEFT, padx=5)
+        
+        # 刷新按钮
+        refresh_btn = ttk.Button(bottom_frame, text="刷新状态", 
+                               command=lambda: self.refresh_mcp_status(status_tree, detail_window))
+        refresh_btn.pack(side=tk.RIGHT, padx=5)
+        
+        # 关闭按钮
+        close_btn = ttk.Button(bottom_frame, text="关闭", command=detail_window.destroy)
+        close_btn.pack(side=tk.RIGHT, padx=5)
+
+    def refresh_mcp_status(self, tree, window):
+        """刷新MCP服务器状态"""
+        config = self.get_default_llm_config()
+        if not config or not config.get('use_mcp', False):
+            return
+        
+        mcp_servers_str = config.get('mcp_servers', '[]')
+        try:
+            mcp_servers = json.loads(mcp_servers_str) if mcp_servers_str else []
+            status_result = self.check_mcp_servers_status(mcp_servers)
+            
+            # 清空现有数据
+            for item in tree.get_children():
+                tree.delete(item)
+            
+            # 重新填充数据
+            for server in status_result.get('servers', []):
+                status_text = {
+                    'ready': '就绪',
+                    'error': '错误',
+                    'checking': '检查中',
+                    'unknown': '未知'
+                }
+                
+                tree.insert('', tk.END, values=(
+                    server.get('name', '未知'),
+                    server.get('type', '未知'),
+                    status_text.get(server.get('status', 'unknown'), '未知'),
+                    server.get('message', '')
+                ))
+                
+            # 更新主界面的状态显示
+            self.update_mcp_status_display()
+            
+        except Exception as e:
+            messagebox.showerror("错误", f"刷新状态失败: {str(e)}")
+
+    def test_npx_command(self, parent_window):
+        """测试npx命令的可用性"""
+        try:
+            import subprocess
+            
+            # 测试npx命令
+            test_result = []
+            
+            # 测试1: 基本npx --version
+            try:
+                result = subprocess.run('npx --version', shell=True, capture_output=True, text=True, timeout=5)
+                test_result.append(f"npx --version: {'成功' if result.returncode == 0 else '失败'}")
+                if result.returncode == 0:
+                    test_result.append(f"版本: {result.stdout.strip()}")
+            except Exception as e:
+                test_result.append(f"npx --version: 错误 - {str(e)}")
+            
+            # 测试2: where npx
+            try:
+                result = subprocess.run('where npx', shell=True, capture_output=True, text=True, timeout=5)
+                test_result.append(f"where npx: {'成功' if result.returncode == 0 else '失败'}")
+                if result.returncode == 0:
+                    test_result.append(f"路径: {result.stdout.strip()}")
+            except Exception as e:
+                test_result.append(f"where npx: 错误 - {str(e)}")
+            
+            # 测试3: node版本
+            try:
+                result = subprocess.run('node --version', shell=True, capture_output=True, text=True, timeout=5)
+                test_result.append(f"node --version: {'成功' if result.returncode == 0 else '失败'}")
+                if result.returncode == 0:
+                    test_result.append(f"Node版本: {result.stdout.strip()}")
+            except Exception as e:
+                test_result.append(f"node --version: 错误 - {str(e)}")
+            
+            # 测试4: 环境变量
+            try:
+                import os
+                path = os.environ.get('PATH', '')
+                node_path = os.environ.get('NODE_PATH', '')
+                test_result.append(f"PATH包含Node: {'nodejs' in path.lower() or 'node' in path.lower()}")
+                if node_path:
+                    test_result.append(f"NODE_PATH: {node_path}")
+            except Exception as e:
+                test_result.append(f"环境变量: 错误 - {str(e)}")
+            
+            # 显示测试结果
+            result_text = "\n".join(test_result)
+            messagebox.showinfo("npx命令测试结果", result_text)
+            
+        except Exception as e:
+            messagebox.showerror("测试错误", f"测试npx命令时出错: {str(e)}")
+
+    def create_tooltip(self, widget, text):
+        """创建工具提示 - 使用系统标准工具提示"""
+        def on_enter(event):
+            self.tooltip = tk.Toplevel()
+            # 不再使用wm_overrideredirect，让系统管理工具提示窗口
+            # self.tooltip.wm_overrideredirect(True)
+            self.tooltip.wm_geometry(f"+{event.x_root + 10}+{event.y_root + 10}")
+            
+            # 设置工具提示样式
+            self.tooltip.configure(bg="#333333")
+            label = tk.Label(self.tooltip, text=text, background="#333333", 
+                           foreground="white", relief="solid", borderwidth=1,
+                           font=("SimSun", 9))
+            label.pack()
+            
+            # 确保工具提示不会获得焦点
+            self.tooltip.wm_transient(self.root)
+            self.tooltip.wm_attributes('-topmost', True)
+
+        def on_leave(event):
+            if hasattr(self, 'tooltip'):
+                self.tooltip.destroy()
+                del self.tooltip
+
+        widget.bind("<Enter>", on_enter)
+        widget.bind("<Leave>", on_leave)
 
     def show_session_context_menu(self, event):
         """显示会话上下文菜单"""
