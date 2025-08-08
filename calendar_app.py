@@ -24,6 +24,14 @@ except ImportError:
 LUNAR_JS_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "lunar.js")
 LUNAR_JS_AVAILABLE = os.path.exists(LUNAR_JS_PATH)
 
+# 导入lunar-javascript集成模块
+try:
+    from lunar_js_integration import LunarJSBridge
+    LUNAR_JS_INTEGRATION_AVAILABLE = True
+except ImportError:
+    LUNAR_JS_INTEGRATION_AVAILABLE = False
+    LunarJSBridge = None  # 为basedpyright提供类型提示
+
 # 尝试导入lunar-python库，如果不可用则尝试使用lunar-javascript或降级模式
 try:
     from lunar_python import Lunar, Solar
@@ -31,7 +39,7 @@ try:
     LUNAR_AVAILABLE = True
 except ImportError:
     LUNAR_PYTHON_AVAILABLE = False
-    LUNAR_AVAILABLE = LUNAR_JS_AVAILABLE
+    LUNAR_AVAILABLE = LUNAR_JS_AVAILABLE and LUNAR_JS_INTEGRATION_AVAILABLE
     if not LUNAR_AVAILABLE:
         print("警告: lunar-python库和lunar-javascript都未安装，将只显示公历日期")
         print("请运行: pip install lunar-python 以启用农历功能")
@@ -337,7 +345,7 @@ class CalendarApp:
                                 # 始终显示农历月份和日期
                                 lunar_month = lunar.getMonthInChinese()
                                 lunar_text = f"{lunar_month}月{lunar_day}"
-                            elif LUNAR_JS_AVAILABLE:
+                            elif LUNAR_JS_AVAILABLE and LUNAR_JS_INTEGRATION_AVAILABLE:
                                 # 使用lunar-javascript获取农历信息
                                 try:
                                     if not hasattr(self, 'lunar_bridge'):
@@ -396,7 +404,7 @@ class CalendarApp:
                     lunar_label.bind("<Button-1>", lambda e, d=day: self.select_day(d))
                     
                     # 添加右键菜单，显示农历详细信息
-                    if LUNAR_JS_AVAILABLE:
+                    if LUNAR_JS_AVAILABLE and LUNAR_JS_INTEGRATION_AVAILABLE:
                         day_frame.bind("<Button-3>", lambda e, d=day: self.show_yi_ji_info(d))
                         date_label.bind("<Button-3>", lambda e, d=day: self.show_yi_ji_info(d))
                         lunar_label.bind("<Button-3>", lambda e, d=day: self.show_yi_ji_info(d))
@@ -450,7 +458,7 @@ class CalendarApp:
     
     def show_yi_ji_info(self, day):
         """显示宜忌信息弹窗"""
-        if not LUNAR_JS_AVAILABLE:
+        if not (LUNAR_JS_AVAILABLE and LUNAR_JS_INTEGRATION_AVAILABLE):
             messagebox.showinfo("提示", "此功能需要lunar-javascript支持，请运行download_lunar.py下载")
             return
         
@@ -2906,7 +2914,7 @@ class CalendarApp:
                     lunar_month = lunar.getMonthInChinese()
                     lunar_day = lunar.getDayInChinese()
                     lunar_info = f"农历{lunar_month}月{lunar_day}"
-                elif LUNAR_JS_AVAILABLE:
+                elif LUNAR_JS_AVAILABLE and LUNAR_JS_INTEGRATION_AVAILABLE:
                     if hasattr(self, 'lunar_bridge'):
                         lunar_month = self.lunar_bridge.get_lunar_month(now.year, now.month, now.day)
                         lunar_day = self.lunar_bridge.get_lunar_day(now.year, now.month, now.day)
@@ -2959,7 +2967,7 @@ class CalendarApp:
                     lunar_month = lunar.getMonthInChinese()
                     lunar_day = lunar.getDayInChinese()
                     lunar_info = f"农历{lunar_month}月{lunar_day}"
-                elif LUNAR_JS_AVAILABLE:
+                elif LUNAR_JS_AVAILABLE and LUNAR_JS_INTEGRATION_AVAILABLE:
                     if hasattr(self, 'lunar_bridge'):
                         lunar_month = self.lunar_bridge.get_lunar_month(now.year, now.month, now.day)
                         lunar_day = self.lunar_bridge.get_lunar_day(now.year, now.month, now.day)
@@ -3248,7 +3256,7 @@ class CalendarApp:
     def get_detailed_lunar_context(self):
         """获取详细的农历信息上下文"""
         try:
-            if not LUNAR_JS_AVAILABLE:
+            if not (LUNAR_JS_AVAILABLE and LUNAR_JS_INTEGRATION_AVAILABLE):
                 return ""
             
             # 获取当前日期
