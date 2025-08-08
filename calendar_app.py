@@ -404,6 +404,12 @@ class CalendarApp:
                     lunar_label.bind("<Button-1>", lambda e, d=day: self.select_day(d))
                     
                     # 添加右键菜单，显示农历详细信息
+                    if LUNAR_JS_AVAILABLE:
+                        day_frame.bind("<Button-3>", lambda e, d=day: self.show_yi_ji_info(d))
+                        date_label.bind("<Button-3>", lambda e, d=day: self.show_yi_ji_info(d))
+                        lunar_label.bind("<Button-3>", lambda e, d=day: self.show_yi_ji_info(d))
+                    
+                    # 添加右键菜单，显示农历详细信息
                     if LUNAR_JS_AVAILABLE and LUNAR_JS_INTEGRATION_AVAILABLE:
                         day_frame.bind("<Button-3>", lambda e, d=day: self.show_yi_ji_info(d))
                         date_label.bind("<Button-3>", lambda e, d=day: self.show_yi_ji_info(d))

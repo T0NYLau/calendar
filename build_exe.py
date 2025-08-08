@@ -20,6 +20,13 @@ def build_exe():
     # 主程序文件
     main_script = os.path.join(current_dir, "calendar_app.py")
     
+    # Python模块文件（需要包含在打包中）
+    python_modules = [
+        "calendar_app_update.py",
+        "download_lunar.py",
+        "lunar_js_integration.py",
+    ]
+    
     # 数据文件
     data_files = [
         ("lunar.js", "."),
@@ -31,6 +38,9 @@ def build_exe():
     if not os.path.exists(lunar_js_path):
         print("警告: lunar.js 不存在，农历功能可能无法使用")
         print("请运行 download_lunar.py 下载 lunar.js")
+        download_script = os.path.join(current_dir, "download_lunar.py")
+        if os.path.exists(download_script):
+            print(f"或者先运行: python {download_script}")
     
     # 构建PyInstaller命令参数
     args = [
@@ -45,6 +55,11 @@ def build_exe():
         '--add-data=lunar.js;.',
         '--add-data=calendar_data.db;.',
         
+        # 包含Python模块文件
+        '--add-data=calendar_app_update.py;.',
+        '--add-data=download_lunar.py;.',
+        '--add-data=lunar_js_integration.py;.',
+        
         # 包含隐藏导入
         '--hidden-import=PIL',
         '--hidden-import=PIL.Image',
@@ -52,6 +67,7 @@ def build_exe():
         '--hidden-import=pystray',
         '--hidden-import=requests',
         '--hidden-import=lunar_python',
+        '--hidden-import=lunar_js_integration',
         
         # 图标
         '--icon=NONE',
@@ -77,13 +93,30 @@ def build_exe():
         # 复制其他必要文件到dist目录
         dist_dir = os.path.join(current_dir, "dist")
         
-        # 复制README和说明文件
-        for file in ["README.md", "LLM使用说明.md", "搜索功能使用说明.txt"]:
+        # 复制文档文件
+        for file in ["README.md", "LLM使用说明.md"]:
             src = os.path.join(current_dir, file)
             if os.path.exists(src):
                 dst = os.path.join(dist_dir, file)
                 shutil.copy2(src, dst)
                 print(f"已复制: {file}")
+        
+        # 复制Python模块文件（作为源码参考）
+        python_files = ["calendar_app_update.py", "download_lunar.py", "lunar_js_integration.py"]
+        for file in python_files:
+            src = os.path.join(current_dir, file)
+            if os.path.exists(src):
+                dst = os.path.join(dist_dir, file)
+                shutil.copy2(src, dst)
+                print(f"已复制: {file}")
+        
+        # 复制requirements.txt（方便用户查看依赖）
+        req_file = "requirements.txt"
+        src = os.path.join(current_dir, req_file)
+        if os.path.exists(src):
+            dst = os.path.join(dist_dir, req_file)
+            shutil.copy2(src, dst)
+            print(f"已复制: {req_file}")
         
         print("\n打包完成！")
         print(f"可执行文件位置: {os.path.join(dist_dir, 'CalendarApp.exe')}")

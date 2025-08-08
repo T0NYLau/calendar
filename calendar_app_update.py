@@ -17,9 +17,8 @@ def update_calendar_app():
     print("已备份原始calendar_app.py文件为calendar_app.py.bak")
     
     # 添加lunar_js_integration导入
-    import_pattern = r"import os
-from tkinter import ttk, messagebox, simpledialog"
-    new_import = "import os
+    import_pattern = r"import os\nfrom tkinter import ttk, messagebox, simpledialog"
+    new_import = '''import os
 from tkinter import ttk, messagebox, simpledialog
 
 # 导入lunar-javascript集成模块
@@ -29,19 +28,12 @@ try:
 except ImportError:
     LUNAR_JS_AVAILABLE = False
     print("警告: lunar-javascript集成模块未找到，将使用lunar-python或降级模式")
-"
+'''
     content = re.sub(import_pattern, new_import, content)
     
     # 修改LUNAR_AVAILABLE检查
-    lunar_check_pattern = r"# 尝试导入lunar-python库，如果不可用则使用降级模式
-try:
-    from lunar_python import Lunar, Solar
-    LUNAR_AVAILABLE = True
-except ImportError:
-    LUNAR_AVAILABLE = False
-    print\("警告: lunar-python库未安装，将只显示公历日期"\)
-    print\("请运行: pip install lunar-python 以启用农历功能"\)"
-    new_lunar_check = "# 尝试导入lunar-python库，如果不可用则尝试使用lunar-javascript或降级模式
+    lunar_check_pattern = r"# 尝试导入lunar-python库，如果不可用则使用降级模式\ntry:\n    from lunar_python import Lunar, Solar\n    LUNAR_AVAILABLE = True\nexcept ImportError:\n    LUNAR_AVAILABLE = False\n    print\(\"警告: lunar-python库未安装，将只显示公历日期\"\)\n    print\(\"请运行: pip install lunar-python 以启用农历功能\"\)"
+    new_lunar_check = '''# 尝试导入lunar-python库，如果不可用则尝试使用lunar-javascript或降级模式
 try:
     from lunar_python import Lunar, Solar
     LUNAR_PYTHON_AVAILABLE = True
@@ -52,26 +44,12 @@ except ImportError:
     if not LUNAR_AVAILABLE:
         print("警告: lunar-python库和lunar-javascript都未安装，将只显示公历日期")
         print("请运行: pip install lunar-python 以启用农历功能")
-        print("或运行: python download_lunar.py 以启用lunar-javascript功能")"
+        print("或运行: python download_lunar.py 以启用lunar-javascript功能")'''
     content = re.sub(lunar_check_pattern, new_lunar_check, content)
     
     # 修改update_calendar方法中的农历获取部分
-    lunar_update_pattern = r"# 获取农历（如果可用）
-                    if LUNAR_AVAILABLE:
-                        try:
-                            solar = Solar\.fromYmd\(self\.selected_year, self\.selected_month, day\)
-                            lunar = Lunar\.fromSolar\(solar\)
-                            lunar_day = lunar\.getDayInChinese\(\)
-                            
-                            # 始终显示农历月份和日期
-                            lunar_month = lunar\.getMonthInChinese\(\)
-                            lunar_text = f"{lunar_month}月{lunar_day}"
-                        except Exception as e:
-                            lunar_text = ""
-                            print\(f"农历转换错误: {e}"\)
-                    else:
-                        lunar_text = """
-    new_lunar_update = "# 获取农历（如果可用）
+    lunar_update_pattern = r"# 获取农历（如果可用）\n                    if LUNAR_AVAILABLE:\n                        try:\n                            solar = Solar\.fromYmd\(self\.selected_year, self\.selected_month, day\)\n                            lunar = Lunar\.fromSolar\(solar\)\n                            lunar_day = lunar\.getDayInChinese\(\)\n                            \n                            # 始终显示农历月份和日期\n                            lunar_month = lunar\.getMonthInChinese\(\)\n                            lunar_text = f\"{lunar_month}月{lunar_day}\"\n                        except Exception as e:\n                            lunar_text = \"\"\n                            print\(f\"农历转换错误: {e}\"\)\n                    else:\n                        lunar_text = \"\""
+    new_lunar_update = '''# 获取农历（如果可用）
                     if LUNAR_AVAILABLE:
                         try:
                             if LUNAR_PYTHON_AVAILABLE:
@@ -115,13 +93,12 @@ except ImportError:
                             lunar_text = ""
                             print(f"农历转换错误: {e}")
                     else:
-                        lunar_text = """
+                        lunar_text = ""'''
     content = re.sub(lunar_update_pattern, new_lunar_update, content)
     
     # 添加显示宜忌信息的方法
-    show_tag_popup_pattern = r"def show_tag_popup\(self, day, color=None\):
-        """显示标签弹窗""""
-    new_method = "def show_yi_ji_info(self, day):
+    show_tag_popup_pattern = r"def show_tag_popup\(self, day, color=None\):\n        \"\"\"显示标签弹窗\"\"\""
+    new_method = '''def show_yi_ji_info(self, day):
         """显示宜忌信息弹窗"""
         if not LUNAR_JS_AVAILABLE:
             messagebox.showinfo("提示", "此功能需要lunar-javascript支持，请运行download_lunar.py下载")
@@ -194,15 +171,12 @@ except ImportError:
             messagebox.showerror("错误", f"获取农历信息失败: {e}")
     
     def show_tag_popup(self, day, color=None):
-        """显示标签弹窗""""
+        """显示标签弹窗"""'''
     content = re.sub(show_tag_popup_pattern, new_method, content)
     
     # 修改日历日期点击事件，添加右键菜单
-    day_click_pattern = r"# 设置点击事件
-                    day_frame\.bind\("<Button-1>", lambda e, d=day: self\.select_day\(d\)\)
-                    date_label\.bind\("<Button-1>", lambda e, d=day: self\.select_day\(d\)\)
-                    lunar_label\.bind\("<Button-1>", lambda e, d=day: self\.select_day\(d\)\)"
-    new_day_click = "# 设置点击事件
+    day_click_pattern = r"# 设置点击事件\n                    day_frame\.bind\(\"<Button-1>\", lambda e, d=day: self\.select_day\(d\)\)\n                    date_label\.bind\(\"<Button-1>\", lambda e, d=day: self\.select_day\(d\)\)\n                    lunar_label\.bind\(\"<Button-1>\", lambda e, d=day: self\.select_day\(d\)\)"
+    new_day_click = '''# 设置点击事件
                     day_frame.bind("<Button-1>", lambda e, d=day: self.select_day(d))
                     date_label.bind("<Button-1>", lambda e, d=day: self.select_day(d))
                     lunar_label.bind("<Button-1>", lambda e, d=day: self.select_day(d))
@@ -211,7 +185,7 @@ except ImportError:
                     if LUNAR_JS_AVAILABLE:
                         day_frame.bind("<Button-3>", lambda e, d=day: self.show_yi_ji_info(d))
                         date_label.bind("<Button-3>", lambda e, d=day: self.show_yi_ji_info(d))
-                        lunar_label.bind("<Button-3>", lambda e, d=day: self.show_yi_ji_info(d))"
+                        lunar_label.bind("<Button-3>", lambda e, d=day: self.show_yi_ji_info(d))'''
     content = re.sub(day_click_pattern, new_day_click, content)
     
     # 写入更新后的文件
