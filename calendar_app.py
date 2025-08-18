@@ -8,7 +8,7 @@ import threading
 import json
 import subprocess
 import requests
-from tkinter import ttk, messagebox, simpledialog
+from tkinter import ttk, messagebox
 
 # 导入系统托盘相关库
 try:
@@ -2373,26 +2373,6 @@ class CalendarApp:
         
         # 聊天界面
         self.create_llm_chat_ui(chat_frame, popup)
-
-        # 添加右下角缩放控件
-        resize_handle = tk.Frame(popup, cursor="size_nw_se", bg="#222222", width=16, height=16)
-        resize_handle.place(relx=1.0, rely=1.0, anchor="se")
-
-        def start_resize(event):
-            resize_handle.start_x = event.x
-            resize_handle.start_y = event.y
-            resize_handle.start_width = popup.winfo_width()
-            resize_handle.start_height = popup.winfo_height()
-
-        def do_resize(event):
-            dx = event.x - resize_handle.start_x
-            dy = event.y - resize_handle.start_y
-            new_width = max(popup.minsize()[0], resize_handle.start_width + dx)
-            new_height = max(popup.minsize()[1], resize_handle.start_height + dy)
-            popup.geometry(f"{new_width}x{new_height}")
-
-        resize_handle.bind("<Button-1>", start_resize)
-        resize_handle.bind("<B1-Motion>", do_resize)
     
     def create_llm_config_ui(self, parent, popup):
         """创建LLM配置管理界面"""
