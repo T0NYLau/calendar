@@ -10,6 +10,9 @@ import subprocess
 import requests
 from tkinter import ttk, messagebox
 
+# 导入MCP集成
+from mcp_client_integration import MCPManager, mcp_manager
+
 # 导入系统托盘相关库
 try:
     import pystray
@@ -117,6 +120,30 @@ class CalendarApp:
         
         # 设置定时检查提醒（每小时检查一次）
         self.schedule_reminder_check()
+        
+        # 启动MCP服务
+        self.initialize_mcp()
+    
+    def initialize_mcp(self):
+        """初始化MCP服务"""
+        try:
+            mcp_manager.start()
+            print("MCP服务启动成功")
+            # 更新MCP状态标签
+            if hasattr(self, 'mcp_status_label'):
+                self.mcp_status_label.config(text="MCP: 已启用", foreground='#00ff00')
+        except Exception as e:
+            print(f"MCP服务启动失败: {e}")
+            if hasattr(self, 'mcp_status_label'):
+                self.mcp_status_label.config(text="MCP: 未启用", foreground='#ff0000')
+    
+    def cleanup_mcp(self):
+        """清理MCP资源"""
+        try:
+            mcp_manager.stop()
+            print("MCP服务已停止")
+        except Exception as e:
+            print(f"停止MCP服务时出错: {e}")
     
     def search_with_search1api(self, query):
         """使用Search1API进行联网搜索"""
@@ -2482,6 +2509,11 @@ class CalendarApp:
         ttk.Label(title_frame, text="AI助手", font=("SimSun", 12, "bold"), 
                  style='Dark.TLabel').pack(side=tk.LEFT)
         
+        # MCP状态显示
+        self.mcp_status_label = ttk.Label(title_frame, text="MCP: 已启用", 
+                                        style='Dark.TLabel', foreground='#00ff00')
+        self.mcp_status_label.pack(side=tk.RIGHT)
+        
 
         
         # 聊天历史显示区域
@@ -2527,7 +2559,19 @@ class CalendarApp:
         self.input_text.bind("<Control-Return>", lambda e: self.send_llm_message())
         
         # 初始化聊天
-        self.chat_text.insert(tk.END, "AI助手: 您好！我是您的AI助手，有什么可以帮助您的吗？\n\n", "system")
+        self.chat_text.insert(tk.END, "🤖 AI助手: 欢迎使用智能日历助手！MCP文件系统已启用\n", "system")
+        self.chat_text.insert(tk.END, "\n【MCP文件系统功能】\n", "system")
+        self.chat_text.insert(tk.END, "📁 文件操作：\n", "system")
+        self.chat_text.insert(tk.END, "  • 列出目录: 列出目录: ./documents\n", "system")
+        self.chat_text.insert(tk.END, "  • 查看文件: 查看文件: README.md\n", "system")
+        self.chat_text.insert(tk.END, "  • 搜索文件: 搜索文件: *.py\n", "system")
+        self.chat_text.insert(tk.END, "  • 文件信息: 文件信息: calendar_app.py\n\n", "system")
+        self.chat_text.insert(tk.END, "📅 日历管理：\n", "system")
+        self.chat_text.insert(tk.END, "  • 添加提醒: 添加提醒: 会议 2024-12-25 10:00\n", "system")
+        self.chat_text.insert(tk.END, "  • 列出提醒: 列出提醒\n", "system")
+        self.chat_text.insert(tk.END, "  • 添加标签: 添加标签: 重要 红色\n", "system")
+        self.chat_text.insert(tk.END, "  • 列出标签: 列出标签\n\n", "system")
+        self.chat_text.insert(tk.END, "💡 提示：直接输入问题或使用上述命令格式\n", "system")
         self.chat_text.configure(state="disabled")
         
         # 聊天标签配置
@@ -2931,8 +2975,9 @@ class CalendarApp:
         self.chat_text.configure(state="disabled")
         self.chat_text.see(tk.END)
         
-        # 在新线程中发送请求，包含时间上下文
-        threading.Thread(target=self.call_llm_api_stream_with_time, args=(message, config, time_context), daemon=True).start()
+        # 在新线程中发送请求，包含时间上下文和MCP工具
+        threading.Thread(target=self.call_llm_api_stream_with_time_and_mcp, 
+                        args=(message, config, time_context), daemon=True).start()
     
     def call_llm_api_stream(self, message, config):
         """调用LLM API（流式）"""
@@ -2968,8 +3013,8 @@ class CalendarApp:
         
         self.call_llm_api_stream_with_time(message, config, time_context)
     
-    def call_llm_api_stream_with_time(self, message, config, time_context):
-        """调用LLM API（流式，包含时间信息）"""
+    def call_llm_api_stream_with_time_and_mcp(self, message, config, time_context):
+        """调用LLM API（流式，包含时间信息和MCP工具）"""
         try:
             # 检查是否是搜索请求 - 支持多种格式
             is_search_request = False
@@ -3028,12 +3073,36 @@ class CalendarApp:
             # 构建消息历史（包含时间信息和当前消息）
             messages = []
             
-            # 添加系统消息，包含当前时间信息和详细农历信息
-            messages.append({"role": "system", "content": f"{full_context}\n\n请基于以上时间信息和农历详情回答用户的问题。"})
+            # 添加系统消息，包含当前时间信息、农历详情和MCP工具说明
+            mcp_tools_info = """
+您可以使用以下MCP工具来访问本地文件系统和数据库：
+1. list_directory - 列出目录内容
+2. read_file - 读取文件内容
+3. write_file - 写入文件内容
+4. search_files - 搜索文件
+5. get_file_info - 获取文件信息
+6. query_calendar_db - 查询日历数据库
+7. add_reminder - 添加提醒
+8. list_reminders - 列出提醒
+9. add_tag - 添加标签
+10. list_tags - 列出标签
+
+当用户需要访问本地文件、查看或编辑文件、管理提醒和标签时，请使用相应的MCP工具。
+"""
+            
+            messages.append({"role": "system", "content": f"{full_context}\n\n{mcp_tools_info}\n\n请基于以上时间信息和农历详情回答用户的问题，并在需要时使用MCP工具访问本地文件系统或数据库。"})
             
             # 添加历史消息
             for msg in self.current_messages:
                 messages.append({"role": msg["role"], "content": msg["content"]})
+            
+            # 检查是否需要使用MCP工具
+            mcp_response = self.check_and_use_mcp_tools(message)
+            if mcp_response:
+                # 如果有MCP工具调用结果，添加到消息中
+                messages.append({"role": "user", "content": f"用户消息: {message}\n\nMCP工具调用结果:\n{mcp_response}"})
+            else:
+                messages.append({"role": "user", "content": message})
             
             # 构建请求体（支持流式）
             data = {
@@ -3069,6 +3138,56 @@ class CalendarApp:
         except Exception as e:
             error_msg = f"未知错误: {str(e)}"
             self.root.after(0, self.update_chat_with_error, error_msg)
+    
+    def check_and_use_mcp_tools(self, message):
+        """检查并使用MCP工具"""
+        try:
+            # 定义MCP工具调用的关键词和对应函数
+            mcp_patterns = {
+                "列出目录": lambda path: mcp_manager.list_directory(path or "."),
+                "查看文件": lambda path: mcp_manager.read_file(path) if path else "请提供文件路径",
+                "读取文件": lambda path: mcp_manager.read_file(path) if path else "请提供文件路径",
+                "写入文件": lambda params: mcp_manager.write_file(params[0], params[1]) if len(params) >= 2 else "请提供文件路径和内容",
+                "搜索文件": lambda pattern: mcp_manager.search_files(pattern or "*"),
+                "搜索": lambda pattern: mcp_manager.search_files(pattern or "*"),
+                "查询数据库": lambda query: mcp_manager.query_calendar_db(query or "SELECT * FROM reminders"),
+                "添加提醒": lambda params: mcp_manager.add_reminder(params[0], params[1]) if len(params) >= 2 else "请提供提醒标题和时间",
+                "列出提醒": lambda: mcp_manager.list_reminders(),
+                "添加标签": lambda params: mcp_manager.add_tag(params[0], params[1]) if len(params) >= 2 else "请提供标签名称和颜色",
+                "列出标签": lambda: mcp_manager.list_tags(),
+            }
+            
+            # 检查消息中是否包含MCP工具调用
+            for pattern, func in mcp_patterns.items():
+                if pattern in message:
+                    try:
+                        # 提取参数（简单实现）
+                        if pattern in ["列出目录", "查看文件", "读取文件", "搜索文件", "搜索"]:
+                            # 尝试从消息中提取路径或模式
+                            import re
+                            match = re.search(f"{pattern}[:：]\s*(.+)", message)
+                            param = match.group(1).strip() if match else None
+                            result = func(param)
+                        elif pattern in ["写入文件", "添加提醒", "添加标签"]:
+                            # 尝试从消息中提取多个参数
+                            import re
+                            parts = message.split(":") if ":" in message else message.split("：")
+                            if len(parts) >= 3:
+                                params = [parts[1].strip(), ":".join(parts[2:]).strip()]
+                                result = func(params)
+                            else:
+                                result = func([])
+                        else:
+                            result = func()
+                        
+                        return f"使用MCP工具{pattern}的结果:\n{result}"
+                    except Exception as e:
+                        return f"使用MCP工具{pattern}时出错: {str(e)}"
+            
+            return None
+            
+        except Exception as e:
+            return f"MCP工具调用错误: {str(e)}"
     
     def process_stream_response(self, response):
         """处理流式响应"""
